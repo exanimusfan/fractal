@@ -8,9 +8,21 @@ typedef struct
     int Width;
     int Height;
     int Pitch;
-} application_offscreen_buffer;
+}              application_offscreen_buffer;
 
-internal void ApplicationUpdateAndRender(application_offscreen_buffer Buffer,  int BlueOffset, GreenOffset);
+typedef struct
+{
+    void *Buffer;
+    int32 SamplesPerSecond;
+    int32 ToneHz;
+    int16 ToneVolume;
+    int32 BytesPerSample;
+    f32   WavePeriod;
+    int32 BufferSize;
+    f32   tSine;
+}              application_sound_output;
+
+internal void ApplicationUpdateAndRender(application_offscreen_buffer Buffer,  int BlueOffset, int GreenOffset);
 
 #define FRACTAL_H
 #endif //

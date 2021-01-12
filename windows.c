@@ -1,4 +1,4 @@
-i/*   windows.c                                                                */
+/*   windows.c                                                                */
 /*   By: Victor Caraulan <victor.caraulan@yahoo.com>                          */
 /*   Created: 2021/01/03 11:09:27 by V Caraulan                               */
 
@@ -70,7 +70,7 @@ void WINAPIV DebugOut(const TCHAR *fmt, ...) {
     OutputDebugString(s);
 }
 #endif
-i
+
 global_variable  int GlobalRunning;
 global_variable  win32_offscreen_buffer GlobalBuffer;
 
@@ -448,7 +448,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             Buffer.Height = GlobalBuffer.Height;
             Buffer.Pitch = GlobalBuffer.Pitch;
 
-            ApplicationUpdateAndRender(GlobalBuffer, XOffset, YOffset);
+            ApplicationUpdateAndRender(Buffer, XOffset, YOffset);
             DWORD PlayCursor;
             DWORD WriteCursor;
 
