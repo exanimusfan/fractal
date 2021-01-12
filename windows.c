@@ -1,13 +1,9 @@
-/*   windows.c                                                                */
+i/*   windows.c                                                                */
 /*   By: Victor Caraulan <victor.caraulan@yahoo.com>                          */
 /*   Created: 2021/01/03 11:09:27 by V Caraulan                               */
 
-#include <windows.h>
-#include <wingdi.h>
-#include <xinput.h>
-#include <stdint.h>
-#include <dsound.h>
 #include <math.h>
+#include <stdint.h>
 
 #define PI32 3.14159265359
 #define internal static 
@@ -27,7 +23,13 @@ typedef int64_t int64;
 typedef float  f32;
 typedef double f64;
 
+#include "fractal.h"
 #include "fractal.c"
+
+#include <windows.h>
+#include <wingdi.h>
+#include <xinput.h>
+#include <dsound.h>
 
 typedef struct
 {
@@ -68,7 +70,7 @@ void WINAPIV DebugOut(const TCHAR *fmt, ...) {
     OutputDebugString(s);
 }
 #endif
-
+i
 global_variable  int GlobalRunning;
 global_variable  win32_offscreen_buffer GlobalBuffer;
 
@@ -192,27 +194,6 @@ GetDefaultSoundOutput(void)
     SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
     SoundOutput.BufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
     return (SoundOutput);
-}
-
-internal void
-RenderWeirdGradient(win32_offscreen_buffer Buffer, int BlueOffset, int GreenOffset)
-{
-    int Height = Buffer.Height;
-    int Width = Buffer.Width;
-    uint8 *Row = (uint8 *)Buffer.Memory;
-
-    for (int Y = 0; Y < Height; ++Y)
-    {
-        uint32 *Pixel = (uint32 *)Row;
-        for (int X = 0; X < Width; ++X)
-        {
-            uint8 Blue = (X + BlueOffset);
-            uint8 Green = (Y + GreenOffset);
-
-            *Pixel++ = ((Green << 8) | Blue);
-        }
-        Row += Buffer.Pitch;
-    }
 }
 
 internal void
@@ -459,8 +440,15 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                 TranslateMessage(&Message);
                 DispatchMessage(&Message);
             }
-            RenderWeirdGradient(GlobalBuffer, XOffset, YOffset);
 
+            application_offscreen_buffer Buffer = {0};
+
+            Buffer.Memory = GlobalBuffer.Memory;
+            Buffer.Width = GlobalBuffer.Width;
+            Buffer.Height = GlobalBuffer.Height;
+            Buffer.Pitch = GlobalBuffer.Pitch;
+
+            ApplicationUpdateAndRender(GlobalBuffer, XOffset, YOffset);
             DWORD PlayCursor;
             DWORD WriteCursor;
 

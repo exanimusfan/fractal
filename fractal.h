@@ -1,12 +1,16 @@
 /* date = January 2nd 2021 2:43 pm */
 
-#ifndef FRACTAL_H
-# define FRACTAL_H
+#if !defined(FRACTAL_H)
 
-# include <SDL.h>
-# include <io.h>
-# include <stdio.h>
-# define W 480
-# define H 640
+typedef struct
+{
+    void *Memory;
+    int Width;
+    int Height;
+    int Pitch;
+} application_offscreen_buffer;
 
-#endif //FRACTAL_H
+internal void ApplicationUpdateAndRender(application_offscreen_buffer Buffer,  int BlueOffset, GreenOffset);
+
+#define FRACTAL_H
+#endif //
