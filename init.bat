@@ -1,1 +1,1 @@
-"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat" & "D:\4coder\4ed.exe" windows.c & "D:\Downloads\Brave\remedybg_0_3_2_2\remedybg.exe" debug.rdbg
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat" & "D:\4coder\4ed.exe" windows.c fractal.c & "D:\Downloads\Brave\remedybg_0_3_2_2\remedybg.exe" debug.rdbg

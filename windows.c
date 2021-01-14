@@ -26,6 +26,8 @@ typedef double f64;
 #include "fractal.h"
 #include "fractal.c"
 
+// NOTE(V Caraulan): Windows header files
+
 #include <windows.h>
 #include <wingdi.h>
 #include <xinput.h>
@@ -35,10 +37,10 @@ typedef struct
 {
     BITMAPINFO Info;
     void *Memory;
-    int Width;
-    int Height;
-    int Pitch;
-    int BytesPerPixel;
+    int  Width;
+    int  Height;
+    int  Pitch;
+    int  BytesPerPixel;
 }              win32_offscreen_buffer;
 
 typedef struct
@@ -50,13 +52,13 @@ typedef struct
 typedef struct
 {
     LPDIRECTSOUNDBUFFER Buffer;
-    int32 SamplesPerSecond;
-    int32 ToneHz;
-    int16 ToneVolume;
-    int32 BytesPerSample;
-    f32   WavePeriod;
-    int32 BufferSize;
-    f32   tSine;
+    int32               SamplesPerSecond;
+    int32               ToneHz;
+    int16               ToneVolume;
+    int32               BytesPerSample;
+    f32                 WavePeriod;
+    int32               BufferSize;
+    f32                 tSine;
 }              win32_sound_output;
 
 // NOTE(V Caraulan): This is my debugging printf from google
@@ -216,9 +218,6 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, win32_window_dimension Dim
     int BytesPerPixel = 4;
     int BitmapMemorySize = Buffer->Width * Dimension.Height * BytesPerPixel;
 
-    // NOTE(V Caraulan): Apparently the way you should use virtualalloc is
-    //with MEM_RESERVE ored with MEM_COMMIT, not just MEM_COMMIT
-
     Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     Buffer->Pitch = Buffer->Width * Buffer->BytesPerPixel;
 
@@ -255,31 +254,14 @@ Win32FillSoundBuffer(win32_sound_output *SoundOutput, int ByteToLock, int BytesT
                                           0)))
     {
         //assert that region1 is valid
-        int16 *SampleOut = (int16 *)Region1;
-
-        DWORD Region1SampleCount = Region1Size / SoundOutput->BytesPerSample;
-        for (int SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex)
-        {
-            f32 SineValue = sinf(SoundOutput->tSine);
-            int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
-            *SampleOut++ = SampleValue;
-            *SampleOut++ = SampleValue;
-
-            SoundOutput->tSine += 2.0f * PI32 * 1.0f / (f32)SoundOutput->WavePeriod;
-            ++*RunningSampleIndex;
-        }
-
-        DWORD Region2SampleCount = Region2Size / SoundOutput->BytesPerSample;
-        SampleOut = (int16 *)Region2;
-        for (int SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex)
-        {
-            f32 SineValue = sinf(SoundOutput->tSine);
-            int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
-            *SampleOut++ = SampleValue;
-            *SampleOut++ = SampleValue;
-            SoundOutput->tSine += 2.0f * PI32 * 1.0f / (f32)SoundOutput->WavePeriod;
-            ++*RunningSampleIndex;
-        }
+        game_sound_output_buffer ApplicationSound = {0};
+        ApplicationSound.SamplesPerSecond = SoundOutput->SamplesPerSecond;
+        ApplicationSound.SampleCount = Region1Size / SoundOutput->BytesPerSample;
+        ApplicationSound.Samples = (int16 *)Region1;
+        GameOutputSound(&ApplicationSound, SoundOutput->ToneHz);
+        ApplicationSound.SampleCount = Region2Size / SoundOutput->BytesPerSample;
+        ApplicationSound.Samples = (int16 *)Region2;
+        GameOutputSound(&ApplicationSound, SoundOutput->ToneHz);
         IDirectSoundBuffer_Unlock(SoundOutput->Buffer,
                                   &Region1, Region1Size,
                                   &Region2, Region2Size);
@@ -345,7 +327,10 @@ MainWindowCallback(HWND Window, UINT Message,
     return (Result);
 }
 
-#include <stdio.h>
+// TODO(V Caraulan): Remove this include if not using printf ?
+#if Profiling
+# include <stdio.h>
+#endif
 
 int
 WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
@@ -384,7 +369,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
     }
     if (Window)
     {
-        ShowWindow(Window, ShowCode); //NOTE: Why is this necessary ?
+        ShowWindow(Window, ShowCode);
         // Run the loop.
         int XOffset = 0;
         int YOffset = 0;
@@ -406,7 +391,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
         while (GlobalRunning)
         {
             MSG Message;
-            //NOTE: Bool is not a boolean, it's an signed int
+
             for (DWORD ControllerIndex = 0; ControllerIndex < XUSER_MAX_COUNT; ++ControllerIndex)
             {
                 XINPUT_STATE ControllerState = {0};

@@ -5,24 +5,19 @@
 typedef struct
 {
     void *Memory;
-    int Width;
-    int Height;
-    int Pitch;
+    int  Width;
+    int  Height;
+    int  Pitch;
 }              application_offscreen_buffer;
 
 typedef struct
 {
-    void *Buffer;
-    int32 SamplesPerSecond;
-    int32 ToneHz;
-    int16 ToneVolume;
-    int32 BytesPerSample;
-    f32   WavePeriod;
-    int32 BufferSize;
-    f32   tSine;
-}              application_sound_output;
+    int   SamplesPerSecond;
+    int   SampleCount;
+    int16 *Samples;
+}              game_sound_output_buffer;
 
 internal void ApplicationUpdateAndRender(application_offscreen_buffer Buffer,  int BlueOffset, int GreenOffset);
 
 #define FRACTAL_H
-#endif //
+#endif
