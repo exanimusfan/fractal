@@ -23,15 +23,17 @@ typedef int64_t int64;
 typedef float  f32;
 typedef double f64;
 
-#include "fractal.h"
-#include "fractal.c"
-
 // NOTE(V Caraulan): Windows header files
 
 #include <windows.h>
 #include <wingdi.h>
 #include <xinput.h>
 #include <dsound.h>
+#include <io.h>
+#include <fileapi.h>
+
+#include "fractal.h"
+#include "fractal.c"
 
 typedef struct
 {
@@ -152,6 +154,30 @@ Win32InitDSound(HWND Window, win32_sound_output *SoundOutput)
         }
     }
 }
+
+internal char *
+Win32OpenAndReadFile(const char *filename, char *source)
+{
+    OVERLAPPED  Overlaped = {0};
+    OFSTRUCT   FileStruct;
+    HANDLE      FileHandle;
+
+    FileHandle = CreateFileA("opencl/mandelbrot.cl", // File path
+                             GENERIC_READ,           // dwDesiredAccess
+                             0,                      // dwShareMode
+                             NULL,                   // lpSecurityAttributes
+                             OPEN_EXISTING,          // dwCreationDisposition
+                             FILE_ATTRIBUTE_NORMAL,  // dwFlagsAndAttributes
+                             NULL);                  // hTemplateFile (optional, and ignored in case of opening existing)
+	check_succeeded("Can't open cl file", ReadFileEx(FileHandle, source, 4096, &Overlaped, LpoverlappedCompletionRoutine));
+    return (source);
+}
+
+internal char *load_program_source(const char *filename, char *source)
+{
+    return (Win32OpenAndReadFile(filename, source));
+}
+
 
 internal void
 Win32LoadXInput(void)
