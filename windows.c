@@ -32,41 +32,9 @@ typedef double f64;
 #include <io.h>
 #include <fileapi.h>
 
-#include "fractal.h"
-#include "fractal.c"
-
-typedef struct
-{
-    BITMAPINFO Info;
-    void *Memory;
-    int  Width;
-    int  Height;
-    int  Pitch;
-    int  BytesPerPixel;
-}              win32_offscreen_buffer;
-
-typedef struct
-{
-    int Width;
-    int Height;
-}              win32_window_dimension;
-
-typedef struct
-{
-    LPDIRECTSOUNDBUFFER Buffer;
-    int32               SamplesPerSecond;
-    int32               ToneHz;
-    int16               ToneVolume;
-    int32               BytesPerSample;
-    f32                 WavePeriod;
-    int32               BufferSize;
-    f32                 tSine;
-}              win32_sound_output;
-
-// NOTE(V Caraulan): This is my debugging printf from google
-#if 0
+#if 1
 void WINAPIV DebugOut(const TCHAR *fmt, ...) {
-    TCHAR s[1025];
+    TCHAR s[4096];
     va_list args;
     va_start(args, fmt);
     wvsprintf(s, fmt, args);
@@ -75,8 +43,15 @@ void WINAPIV DebugOut(const TCHAR *fmt, ...) {
 }
 #endif
 
+#include "windows_layer.h"
+#include "fractal.h"
+#include "fractal.c"
+
+// NOTE(V Caraulan): This is my debugging printf from google
+
 global_variable  int GlobalRunning;
 global_variable  win32_offscreen_buffer GlobalBuffer;
+global_variable  int KeyPress;
 
 // TODO(V Caraulan): Remove the global variables !!!
 
@@ -99,6 +74,7 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
+
 
 void
 Win32InitDSound(HWND Window, win32_sound_output *SoundOutput)
@@ -158,9 +134,10 @@ Win32InitDSound(HWND Window, win32_sound_output *SoundOutput)
 internal char *
 Win32OpenAndReadFile(const char *filename, char *source)
 {
-    OVERLAPPED  Overlaped = {0};
+    OVERLAPPED Overlaped = {0};
     OFSTRUCT   FileStruct;
-    HANDLE      FileHandle;
+    HANDLE     FileHandle;
+    DWORD      BytesRead;
 
     FileHandle = CreateFileA("opencl/mandelbrot.cl", // File path
                              GENERIC_READ,           // dwDesiredAccess
@@ -169,7 +146,11 @@ Win32OpenAndReadFile(const char *filename, char *source)
                              OPEN_EXISTING,          // dwCreationDisposition
                              FILE_ATTRIBUTE_NORMAL,  // dwFlagsAndAttributes
                              NULL);                  // hTemplateFile (optional, and ignored in case of opening existing)
-	check_succeeded("Can't open cl file", ReadFileEx(FileHandle, source, 4096, &Overlaped, LpoverlappedCompletionRoutine));
+    LARGE_INTEGER FileSize;
+    GetFileSizeEx(FileHandle, &FileSize);
+    uint32 FileSize32 = (int32)FileSize.QuadPart;
+    ReadFile(FileHandle, source, FileSize32, &BytesRead, 0);
+    CloseHandle(FileHandle);
     return (source);
 }
 
@@ -177,7 +158,6 @@ internal char *load_program_source(const char *filename, char *source)
 {
     return (Win32OpenAndReadFile(filename, source));
 }
-
 
 internal void
 Win32LoadXInput(void)
@@ -247,10 +227,7 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, win32_window_dimension Dim
     Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     Buffer->Pitch = Buffer->Width * Buffer->BytesPerPixel;
 
-    // TODO(V Caraulan): Maybe find the memset function for this clear to black
-    //  uint8 *Memory = Buffer->Memory;
-    //  for (int i = 0; i < BitmapMemorySize; i++)
-    //    *Memory++ = 0;
+    //DebugOut("This has been resized\n");
 }
 
 
@@ -258,11 +235,23 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, win32_window_dimension Dim
 internal void
 Win32DisplayBufferInWindow(HDC DeviceContext, win32_window_dimension Dimension, win32_offscreen_buffer Buffer, int X, int Y)
 {
-    StretchDIBits(DeviceContext,
-                  X, Y, Buffer.Width, Buffer.Height,
-                  X, Y, Dimension.Width, Dimension.Height,
-                  Buffer.Memory, &Buffer.Info,
-                  DIB_RGB_COLORS, SRCCOPY);
+    int LowHighResolution = 0;
+    if (LowHighResolution == 0)
+    {
+        StretchDIBits(DeviceContext,
+                      0, 0, Buffer.Width, Buffer.Height,
+                      0, 0, Dimension.Width , Dimension.Height,
+                      Buffer.Memory, &Buffer.Info,
+                      DIB_RGB_COLORS, SRCCOPY);
+    }
+    else
+    {
+        StretchDIBits(DeviceContext,
+                      0, 0, Buffer.Width, Buffer.Height,
+                      0, 0, Dimension.Width * 0.5, Dimension.Height * 0.5,
+                      Buffer.Memory, &Buffer.Info,
+                      DIB_RGB_COLORS, SRCCOPY);
+    }
 }
 
 internal void
@@ -319,12 +308,32 @@ MainWindowCallback(HWND Window, UINT Message,
         {
             GlobalRunning = 0;
         } break;
+        case WM_MOUSEWHEEL:
+        {
+            KeyPress |= 1UL << 17;
+            int ScrollDirection = ((short) HIWORD(WParam)< 0) ? -1 : +1;
+            if (ScrollDirection < 1)
+                KeyPress |= 1UL << 18;
+            //DebugOut("keypress %d\n", KeyPress);
+            GlobalBuffer.LowHighResolution = 1;
+        } break;
+#if 0
+        case WM_MOUSEMOVE:
+        {
+            GlobalBuffer.LowHighResolution = 1;
+            int MKCode = WParam;
+
+            if (MKCode == )
+        } break:
+#endif
         case WM_KEYUP:
         case WM_KEYDOWN:
         {
             int VKCode = WParam;
             int WasDown = ((LParam & (1 << 30)) != 0);
             int IsDown = ((LParam & (1 << 31)) == 0);
+            if (IsDown)
+                GlobalBuffer.LowHighResolution = 1;
             if (IsDown != WasDown)
             {
                 if (VKCode == VK_ESCAPE){ //Quit
@@ -333,12 +342,75 @@ MainWindowCallback(HWND Window, UINT Message,
                         GlobalRunning = 0;
                     }
                 }
+                if (VKCode == 'W'){ //Up
+                    if (IsDown)
+                    {
+                        KeyPress |= (1UL << 15);
+                    }
+                    else
+                    {
+                        KeyPress &= ~(1UL << 15);
+                    }
+                }
+                if (VKCode == 'S'){ //Down
+                    if (IsDown)
+                    {
+                        KeyPress |= (1UL << 16);
+                    }
+                    else
+                    {
+                        KeyPress &= ~(1UL << 16);
+                    }
+                }
+                if (VKCode == 'A'){ //Left
+                    if (IsDown)
+                    {
+                        KeyPress |= (1UL << 13);
+                    }
+                    else
+                    {
+                        KeyPress &= ~(1UL << 13);
+                    }
+                }
+                if (VKCode == 'D'){ //Right
+                    if (IsDown)
+                    {
+                        KeyPress |= (1UL << 14);
+                    }
+                    else
+                    {
+                        KeyPress &= ~(1UL << 14);
+                    }
+                }
             }
-
         }break;
 
         case WM_PAINT:
         {
+            for (DWORD ControllerIndex = 0; ControllerIndex < XUSER_MAX_COUNT; ++ControllerIndex)
+            {
+                XINPUT_STATE ControllerState = {0};
+                if (XInputGetState_(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+                {
+                    XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
+                    int Up = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+                    int Down = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+                    int Left = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+                    int Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+                    int AButton = (Pad->wButtons & XINPUT_GAMEPAD_A);
+                    int BButton = (Pad->wButtons & XINPUT_GAMEPAD_B);
+                    int XButton = (Pad->wButtons & XINPUT_GAMEPAD_X);
+                    int YButton = (Pad->wButtons & XINPUT_GAMEPAD_Y);
+
+                    int StickX = Pad->sThumbLX;
+                    int StickY = Pad->sThumbLY;
+
+                    if (BButton)
+                    {
+                        GlobalRunning = 0;
+                    }
+                }
+            }
             win32_window_dimension Dimension = GetWindowDimension(Window);
             PAINTSTRUCT Paint;
             HDC DeviceContext = BeginPaint(Window, &Paint);
@@ -386,7 +458,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                                  "Fractal",         // Window text
                                  WS_OVERLAPPEDWINDOW, // Window style
                                  // Size and position
-                                 CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+                                 CW_USEDEFAULT, CW_USEDEFAULT, 1280, 720,
                                  NULL,       // Parent window    
                                  NULL,       // Menu
                                  WindowClass.hInstance,  // Instance handle
@@ -401,11 +473,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
         int YOffset = 0;
 
         uint32 RunningSampleIndex = 0;
-        win32_sound_output SoundOutput = GetDefaultSoundOutput();
-
-        Win32InitDSound(Window, &SoundOutput);
-
-        int SoundIsPlaying = 0;
 
         HDC DeviceContext = GetDC(Window);
         GlobalRunning = 1;
@@ -417,33 +484,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
         while (GlobalRunning)
         {
             MSG Message;
-
-            for (DWORD ControllerIndex = 0; ControllerIndex < XUSER_MAX_COUNT; ++ControllerIndex)
-            {
-                XINPUT_STATE ControllerState = {0};
-                if (XInputGetState_(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
-                {
-                    XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
-                    int Up = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-                    int Down = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-                    int Left = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-                    int Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-                    int AButton = (Pad->wButtons & XINPUT_GAMEPAD_A);
-                    int BButton = (Pad->wButtons & XINPUT_GAMEPAD_B);
-                    int XButton = (Pad->wButtons & XINPUT_GAMEPAD_X);
-                    int YButton = (Pad->wButtons & XINPUT_GAMEPAD_Y);
-
-                    int StickX = Pad->sThumbLX;
-                    int StickY = Pad->sThumbLY;
-                    XOffset += StickX >> 12;
-                    YOffset -= StickY >> 12;
-                    if (BButton)
-                    {
-                        GlobalRunning = 0;
-                    }
-                }
-            }
             BOOL MessageResult = PeekMessageA(&Message, NULL, 0, 0, PM_REMOVE);
+
             if (MessageResult > 0)
             {
                 if (Message.message == WM_QUIT)
@@ -451,53 +493,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                 TranslateMessage(&Message);
                 DispatchMessage(&Message);
             }
-
             application_offscreen_buffer Buffer = {0};
 
             Buffer.Memory = GlobalBuffer.Memory;
             Buffer.Width = GlobalBuffer.Width;
             Buffer.Height = GlobalBuffer.Height;
             Buffer.Pitch = GlobalBuffer.Pitch;
+            Buffer.BytesPerPixel = GlobalBuffer.BytesPerPixel;
 
-            ApplicationUpdateAndRender(Buffer, XOffset, YOffset);
-            DWORD PlayCursor;
-            DWORD WriteCursor;
-
-            if (SoundOutput.Buffer)
-            {
-                if (SUCCEEDED(IDirectSoundBuffer_GetCurrentPosition(SoundOutput.Buffer,
-                                                                    &PlayCursor ,&WriteCursor)))
-                {
-                    DWORD BytesToWrite;
-                    DWORD ByteToLock = (RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.BufferSize;
-
-
-                    if (ByteToLock == PlayCursor)
-                    {
-                        if (SoundIsPlaying)
-                            BytesToWrite = 0;
-                        else
-                            BytesToWrite = SoundOutput.BufferSize;
-                    }
-                    if (ByteToLock > PlayCursor)
-                    {
-                        BytesToWrite = SoundOutput.BufferSize - ByteToLock;
-                        BytesToWrite += PlayCursor;
-                    }
-                    else if (ByteToLock < PlayCursor)
-                    {
-                        BytesToWrite = PlayCursor - ByteToLock;
-                    }
-                    Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &RunningSampleIndex);
-                }
-            }
+            ApplicationUpdateAndRender(Buffer, &KeyPress);
             win32_window_dimension Dimension = GetWindowDimension(Window);
             Win32DisplayBufferInWindow(DeviceContext, Dimension, GlobalBuffer, 0, 0);
-            if (SoundOutput.Buffer)
-            {
-                IDirectSoundBuffer_Play(SoundOutput.Buffer, 0, 0, DSBPLAY_LOOPING);
-                SoundIsPlaying = 1;
-            }
+
 #if Profiling
             int64 EndCycleCount = __rdtsc();
 
@@ -510,9 +517,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             f32 FPS = (f32)PerfCountFrequency / (f32)CounterElapsed;
             f32 MCPF = (f32)(CycleElapsed / (1000.0f * 1000.0f));
 
-            char Buffer[256];
-            sprintf(Buffer, "%fMS/f. %fFPS, %fmc/f\n", MSPerFrame, FPS, MCPF);
-            OutputDebugStringA(Buffer);
+            //DebugOut()
+            char TempBuffer[256];
+            sprintf(TempBuffer, "%fMS/f. %fFPS, %fmc/f\b\n", MSPerFrame, FPS, MCPF);
+            //OutputDebugStringA(TempBuffer);
 
             LastCounter = EndCounter;
             LastCycleCount = EndCycleCount;

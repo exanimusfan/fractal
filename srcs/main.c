@@ -59,7 +59,8 @@ static void ft_putendl(char *str)
 r
 static void	ft_usage(char *str)
 {
-    write(1, "Usage: ", 10);
+    write(1, "Usage: ", 5);
+#if 0
 	ft_putstr(str);
 	ft_putendl(" [-cg] [name of fractol]");
 	ft_putendl("\t-c for CPU multithreaded openCL");
@@ -74,6 +75,7 @@ static void	ft_usage(char *str)
 	ft_putendl("\t\"menace\" \"ms\"");
 	ft_putendl("\t\"burning ship 2\" \"b2\"");
 	ft_putendl("\t\"sierpinski\" \"s\"");
+#endif
 }
 
 static int	choose_cl_device(t_fol *fol, int ac, char **str)
@@ -95,9 +97,9 @@ static int	choose_cl_device(t_fol *fol, int ac, char **str)
 		}
 		else if (str[i][0] == '-')
 		{
-			ft_putstr("fractol: invalid option -- '");
-			ft_putstr(&str[i][1]);
-			ft_putendl("'");
+			//ft_putstr("fractol: invalid option -- '");
+			//ft_putstr(&str[i][1]);
+			//ft_putendl("'");
 			ft_exit(fol);
 		}
 		i++;
@@ -146,9 +148,8 @@ static void	draw_on_screen(t_fol *fol)
 
 int			main(int ac, char **av)
 {
-	t_fol	fol;
+	t_fol	fol = {0};
 
-	ft_bzero(&fol, sizeof(t_fol));
 	fol.dtype = CL_DEVICE_TYPE_DEFAULT;
 	if (ac >= 1 && ac <= 3)
 	{

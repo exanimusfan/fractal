@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   mandelbrot.cl                                      :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: viccarau <viccarau@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2019/06/02 12:12:47 by viccarau          #+#    #+#             */
-/*   Updated: 2019/06/16 20:00:40 by viccarau         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "opencl.h"
 
 static int		ft_color(t_krn k, t_mdl m, int i)
@@ -17,8 +5,7 @@ static int		ft_color(t_krn k, t_mdl m, int i)
 	int r;
 	int g;
 	int b;
-	double color_const;
-
+	float color_const;
 	color_const = (i + 1 - (log(2.0) / (log(m.x * m.x + m.y * m.y)))
 		/ log(2.0));
 	r = sin(k.red * color_const) * 127.5 + 127.5;
@@ -27,7 +14,7 @@ static int		ft_color(t_krn k, t_mdl m, int i)
 	return ((r << 16) | (g << 8) | b);
 }
 
-static t_mdl	mdl_init(t_krn k, double xoffset, double yoffset)
+static t_mdl	mdl_init(t_krn k, float xoffset, float yoffset)
 {
 	t_mdl	m;
 
@@ -35,8 +22,8 @@ static t_mdl	mdl_init(t_krn k, double xoffset, double yoffset)
 	m.y_dim = get_global_id(1);
 	m.width = get_global_size(0);
 	m.height = get_global_size(1);
-	m.x_origin = ((((double)m.x_dim / m.width) * k.xmax - k.xmin)) + k.xoffset;
-	m.y_origin = ((((double)m.y_dim / m.height) * k.ymax - k.ymin)) + k.yoffset;
+	m.x_origin = ((((float)m.x_dim / m.width) * k.xmax - k.xmin)) + k.xoffset;
+	m.y_origin = ((((float)m.y_dim / m.height) * k.ymax - k.ymin)) + k.yoffset;
 	m.x = 0.0;
 	m.y = 0.0;
 	return (m);
@@ -45,7 +32,7 @@ static t_mdl	mdl_init(t_krn k, double xoffset, double yoffset)
 __kernel void	render(__global int *out, t_krn k, int mx, int my)
 {
 	t_mdl	m;
-	double	xtemp;
+	float	xtemp;
 	int		i;
 
 	m = mdl_init(k, k.xoffset, k.yoffset);

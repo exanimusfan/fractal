@@ -56,7 +56,7 @@ t_args				init_args(void)
 int					ft_exit(t_fol *f)
 {
 	finish_cl(f->ocl.context,
-		f->ocl.cmd_queue[0], f->ocl.image);
+              f->ocl.cmd_queue[0], f->ocl.image);
 	exit(0);
 	return (1);
 }
@@ -65,8 +65,8 @@ int					is_alloc(void *memory, const char *str)
 {
 	if (memory == NULL)
 	{
-		ft_putstr("Couldn't allocate memory for ");
-		ft_putendl(str);
+		//ft_putstr("Couldn't allocate memory for ");
+		//ft_putendl(str);
 		exit(0);
 	}
 	return (0);

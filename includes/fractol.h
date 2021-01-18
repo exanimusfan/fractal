@@ -14,8 +14,6 @@
 # define FRACTOL_H
 # include <math.h>
 # include "cl_helper.h"
-# define W (1920)
-# define H (1080)
 # define RGB_W 0xFFFFFFFF
 
 /*
@@ -60,16 +58,16 @@ typedef struct		s_ocl
 
 typedef struct		s_krn
 {
-	double	xmin;
-	double	xmax;
-	double	ymin;
-	double	ymax;
-	double	xoffset;
-	double	yoffset;
+	float	xmin;
+	float	xmax;
+	float	ymin;
+	float	ymax;
+	float	xoffset;
+	float	yoffset;
 	int		iter;
-	double	red;
-	double	green;
-	double	blue;
+	float	red;
+	float	green;
+	float	blue;
 }					t_krn;
 
 typedef struct s_2d
@@ -82,9 +80,9 @@ typedef struct s_fol
 {
 	int            time;
 	int            time1;
-	double         dt;
+	float         dt;
 	int            totaltime;
-	double         zoom;
+	float         zoom;
 	t_args         a;
 	int            keypress;
     int            xx;
@@ -99,6 +97,7 @@ typedef struct s_fol
 	t_ocl          ocl;
 	t_krn          k;
 	cl_device_type dtype;
+    t_2d           old_buffer_size;
 }              t_fol;
 
 void				check_keypress(t_fol *fol);
@@ -109,7 +108,7 @@ int					ft_exit(t_fol *f);
 void				ui_function(t_fol *fol);
 void				print_stuff(const char *vendor_name,
                     const char *device_name, int i);
-int					run_cl(application_offscreen_buffer Buffer, t_fol *fol, int x, int y);
+int					run_cl(application_offscreen_buffer Buffer, t_fol *fol);
 //int					key_func(SDL_Event event, t_fol *fol);
 int					mouse_hook(int button, int x, int y, t_fol *fol);
 unsigned int		ft_pow2(unsigned int a);

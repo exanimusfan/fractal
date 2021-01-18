@@ -12,63 +12,29 @@
 
 #include "fractol.h"
 
-void LpoverlappedCompletionRoutine(
-                                   DWORD dwErrorCode,
-                                   DWORD dwNumberOfBytesTransfered,
-                                   LPOVERLAPPED lpOverlapped
-                                   )
-{
-    printf("Error code = %d, %d", dwErrorCode, dwNumberOfBytesTransfered);
-}
-
-char *load_program_source(const char *filename, char *source);
-
-cl_kernel	load_krnl(cl_context context,
-					const char *filename)
-{
-	char		source[4096];
-	cl_program	program[1];
-	cl_kernel	kernel[1];
-	int			err;
-	char		*program_source;
-
-	program_source = load_program_source(filename, &source[0]);
-	if (program_source != NULL)
-	{
-		program[0] = clCreateProgramWithSource(context, 1,
-                                               (const char**)&program_source, NULL, &err);
-		check_succeeded("Loading kernel", err);
-		err = clBuildProgram(program[0], 0, NULL, "-I opencl", NULL, NULL);
-		check_succeeded("Building program", err);
-		kernel[0] = clCreateKernel(program[0], "render", &err);
-	}
-	return (kernel[0]);
-}
-
 cl_context	create_context(cl_device_type dtype, cl_uint *num_devices)
 {
 	cl_int			err;
-	cl_device_id	devices[16];
+	cl_device_id	devices[16] = {0};
 	cl_context		context;
-	cl_platform_id	platforms;
+	cl_platform_id	platform = {0};
 
-	*num_devices = 0;
-	clGetPlatformIDs(1, &platforms, NULL);
-	err = clGetDeviceIDs(platforms, dtype, 16, devices,
-                         num_devices);
-	context = clCreateContext(0, *num_devices, devices, NULL, NULL, &err);
+    *num_devices = 0;
+    clGetPlatformIDs(1, &platform, NULL);
+    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 16, devices, num_devices);
+    context = clCreateContext(0, *num_devices, devices, NULL, NULL, &err);
 	check_succeeded("Creating context", err);
-	return (context);
+    return (context);
 }
 
 void		print_debug_info(cl_context context)
 {
-	t_dbug			d;
+	t_dbug			d = {0};
 	size_t			size;
 	int				elements;
 	int				i;
 
-	ft_bzero(&d, sizeof(t_dbug));
+	//ft_bzero(&d, sizeof(t_dbug));
 	d.err = clGetContextInfo(context, CL_CONTEXT_DEVICES,
                              sizeof(cl_device_id) * 16, &d.devices, &size);
 	check_succeeded("Getting context info", d.err);
@@ -80,10 +46,9 @@ void		print_debug_info(cl_context context)
                                 sizeof(d.vendor_name), d.vendor_name, NULL);
 		d.err |= clGetDeviceInfo(d.devices[i], CL_DEVICE_NAME,
                                  sizeof(d.device_name), d.device_name, NULL);
-		check_succeeded("Getting device info", d.err);
-		print_stuff((const char *)d.vendor_name,
-                    (const char *)d.device_name, i);
-		i++;
+        check_succeeded("Getting device info", d.err);
+        DebugOut("Device: %d %s %s\n", i, d.vendor_name, d.device_name);
+        i++;
 	}
 }
 
@@ -91,10 +56,11 @@ void		check_succeeded(char *message, cl_int err)
 {
 	if (err != CL_SUCCESS)
 	{
-		ft_putstr(message);
-		ft_putstr(": ");
-		ft_putnbr(err);
-		ft_putchar('\n');
+		DebugOut("%s: %d\n", message, err);	
+		//ft_putstr(message);
+		//ft_putstr(": ");
+		//ft_putnbr(err);
+		//ft_putchar('\n');
 		exit(0);
 	}
 }

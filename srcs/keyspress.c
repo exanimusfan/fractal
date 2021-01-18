@@ -12,36 +12,11 @@
 
 #include "fractol.h"
 
-void		print_stuff(const char *vendor_name, const char *device_name, int i)
-{
-	ft_putstr("Device : ");
-	ft_putnbr(i);
-	ft_putchar(' ');
-	ft_putstr((const char *)vendor_name);
-	ft_putchar(' ');
-	ft_putstr((const char *)device_name);
-	ft_putchar('\n');
-}
-
-
-void		check_key(t_fol *fol, SDL_Event event,
-				SDL_Scancode key, int bit)
-{
-	if (event.key.keysym.scancode == key)
-	{
-		if (event.type == SDL_KEYDOWN)
-			fol->keypress |= bit;
-		else
-			fol->keypress &= ~(bit);
-	}
-}
-
-
 static void	acceleration_movement(t_fol *fol)
 {
-		int	neg;
+    int	neg;
 
-	if (fol->keypress & 1UL << 15 || fol->keypress & 1UL << 16)
+    if (fol->keypress & 1UL << 15 || fol->keypress & 1UL << 16)
 	{
 		neg = (fol->keypress & 1UL << 16) ? 1 : -1;
 		fol->accel.y += neg;
@@ -50,14 +25,18 @@ static void	acceleration_movement(t_fol *fol)
 	{
 		neg = (fol->keypress & 1UL << 14) ? 1 : -1;
 		fol->accel.x += neg;
-		}
-	fol->accel.x -= fol->accel.x / 20;
-		fol->accel.y -= fol->accel.y / 20;
-	}
+    }
+	fol->accel.x -= fol->accel.x / 2;
+    fol->accel.y -= fol->accel.y / 2;
+}
 
 void	check_keypress(t_fol *fol)
 {
-	acceleration_movement(fol);
+    int i;
+
+    i = 0;
+
+    acceleration_movement(fol);
 	if (fol->keypress & 1UL)
 		fol->k.iter = 300;
 	if (fol->keypress & 1UL << 1)
@@ -100,41 +79,43 @@ void	check_keypress(t_fol *fol)
 	fol->k.yoffset += fol->accel.y * fol->zoom * 0.0001;
 }
 
-static int	key_press(SDL_Event event, t_fol *fol)
-{
-	check_key(fol, event, SDL_SCANCODE_1, 1UL);
-	check_key(fol, event, SDL_SCANCODE_2, 1UL << 1);
-	check_key(fol, event, SDL_SCANCODE_3, 1UL << 2);
-	check_key(fol, event, SDL_SCANCODE_4, 1UL << 3);
-	check_key(fol, event, SDL_SCANCODE_5, 1UL << 4);
-	check_key(fol, event, SDL_SCANCODE_6, 1UL << 5);
-	check_key(fol, event, SDL_SCANCODE_ESCAPE, 1UL << 6);
-	check_key(fol, event, SDL_SCANCODE_R, 1UL << 7);
-	check_key(fol, event, SDL_SCANCODE_T, 1UL << 8);
-	check_key(fol, event, SDL_SCANCODE_G, 1UL << 9);
-	check_key(fol, event, SDL_SCANCODE_H, 1UL << 10);
-	check_key(fol, event, SDL_SCANCODE_B, 1UL << 11);
-	check_key(fol, event, SDL_SCANCODE_N, 1UL << 12);
-	check_key(fol, event, SDL_SCANCODE_A, 1UL << 13);
-	check_key(fol, event, SDL_SCANCODE_D, 1UL << 14);
-	check_key(fol, event, SDL_SCANCODE_W, 1UL << 15);
-	check_key(fol, event, SDL_SCANCODE_S, 1UL << 16);
-	//if (event.key.keysym.scancode == SDL_SCANCODE_RETURN)
-		//else if (event.key.keysym.scancode == SDL_SCANCODE_SPACE)
-		return (0);
-}
 
+#if 0
+// TODO(V Caraulan): These keys should'n be dependend on a platform layer (SDL)
+check_key(fol, event, SDL_SCANCODE_1, 1UL);
+check_key(fol, event, SDL_SCANCODE_2, 1UL << 1);
+check_key(fol, event, SDL_SCANCODE_3, 1UL << 2);
+check_key(fol, event, SDL_SCANCODE_4, 1UL << 3);
+check_key(fol, event, SDL_SCANCODE_5, 1UL << 4);
+check_key(fol, event, SDL_SCANCODE_6, 1UL << 5);
+check_key(fol, event, SDL_SCANCODE_ESCAPE, 1UL << 6);
+check_key(fol, event, SDL_SCANCODE_R, 1UL << 7);
+check_key(fol, event, SDL_SCANCODE_T, 1UL << 8);
+check_key(fol, event, SDL_SCANCODE_G, 1UL << 9);
+check_key(fol, event, SDL_SCANCODE_H, 1UL << 10);
+check_key(fol, event, SDL_SCANCODE_B, 1UL << 11);
+check_key(fol, event, SDL_SCANCODE_N, 1UL << 12);
+check_key(fol, event, SDL_SCANCODE_A, 1UL << 13);
+check_key(fol, event, SDL_SCANCODE_D, 1UL << 14);
+check_key(fol, event, SDL_SCANCODE_W, 1UL << 15);
+check_key(fol, event, SDL_SCANCODE_S, 1UL << 16);
+//if (event.key.keysym.scancode == SDL_SCANCODE_RETURN)
+//else if (event.key.keysym.scancode == SDL_SCANCODE_SPACE)
+return (0);
+}
 int			key_func(SDL_Event event, t_fol *fol)
 {
 	key_press(fol->sdl.event, fol);
-		if (event.key.keysym.scancode == SDL_SCANCODE_EQUALS)
+    if (event.key.keysym.scancode == SDL_SCANCODE_EQUALS)
 		fol->k.iter++;
 	if (event.key.keysym.scancode == SDL_SCANCODE_MINUS && fol->k.iter > 100)
 		fol->k.iter--;
 	mouse(fol, fol->sdl.event);
-		return (0);
+    return (0);
 }
+#endif
 
+#if 0
 int		mouse_mv(t_fol *fol, SDL_Event event)
 {
 	if (event.type == SDL_MOUSEMOTION)
@@ -148,13 +129,15 @@ int		mouse_mv(t_fol *fol, SDL_Event event)
 		}
 	}
 	if (event.type == SDL_MOUSEBUTTONDOWN)
-{
+    {
 		if (event.button.button == SDL_BUTTON_RIGHT)
-	fol->flag ^= 1UL;
+            fol->flag ^= 1UL;
 	}
 	return (0);
 }
+#endif
 
+#if 0
 int		mouse(t_fol *fol, SDL_Event event)
 {
 	//motion = (t_f64)(event.motion.xrel * 0.001f);
@@ -163,7 +146,7 @@ int		mouse(t_fol *fol, SDL_Event event)
 	{
 		if (event.wheel.y > 0)
 			fol->zoom *= 1.1f;
-			else if (event.wheel.y < 0)
+        else if (event.wheel.y < 0)
 			fol->zoom *= 0.9f;
 		fol->k.xoffset += (((double)fol->xx / W * 3.5f) - 2.5f) * (fol->zoom * 0.1f);
 		fol->k.yoffset += (((double)fol->yy / H * 2.5f) - 1.25f) * (fol->zoom * 0.1f);
@@ -173,4 +156,5 @@ int		mouse(t_fol *fol, SDL_Event event)
 		fol->k.ymin = 1.25f * fol->zoom;
 	}
 	return (0);
-	}
+}
+#endif

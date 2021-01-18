@@ -23,7 +23,6 @@ typedef struct	s_dbug
 	cl_char			device_name[1024];
 }				t_dbug;
 
-cl_kernel		load_krnl(cl_context context, const char *filename);
 cl_context		create_context(cl_device_type dtype, cl_uint *num_devices);
 void			print_debug_info(cl_context context);
 void			check_succeeded(char *message, cl_int err);

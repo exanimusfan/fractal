@@ -24,43 +24,52 @@ int			finish_cl(cl_context context,
 	return (0);
 }
 
-static void	ft_init_args(t_fol *fol, int x, int y)
+static void	ft_init_args(t_fol *fol)
 {
 	fol->flag |= (1UL << 4);
 	fol->ocl.err = clSetKernelArg(fol->ocl.krnl, 0,
                                   sizeof(cl_mem), &fol->ocl.image);
-	fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 1, sizeof(t_krn), &fol->k);
-	fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 2, sizeof(int), &x);
-	fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 3, sizeof(int), &y);
-	check_succeeded("Setting kernel arg", fol->ocl.err);
+    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 1, sizeof(t_krn), &fol->k);
+    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 2, sizeof(int), &fol->x);
+    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 3, sizeof(int), &fol->y);
+    check_succeeded("Setting kernel arg", fol->ocl.err);
 }
 
-static void	get_context(t_fol *fol, int i)
+static void	get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
 {
+    int Index;
+    char *mem;
 	t_ocl *o;
 
-	ft_bzero(&fol->ocl, sizeof(t_ocl));
-	o = &fol->ocl;
-	o->buff_size = sizeof(int) * W * H;
-	o->context = create_context(fol->dtype, &o->num_devices);
-	if (o->num_devices == 0)
+    mem = (char *)&fol->ocl;
+    Index = 0;
+    while (Index < sizeof(t_ocl))
+    {
+        mem = 0;
+        Index++;
+    }
+    //ft_bzero(&fol->ocl, sizeof(t_ocl));
+    o = &fol->ocl;
+	o->buff_size = Buffer.BytesPerPixel * Buffer.Width * Buffer.Height;
+    o->context = create_context(fol->dtype, &o->num_devices);
+    if (o->num_devices == 0)
 	{
-		ft_putstr("No compute devices found\n");
+        DebugOut("No compute devices found\n");
 		exit(-1);
 	}
 	print_debug_info(o->context);
 	fol->ocl.err = clGetContextInfo(o->context, CL_CONTEXT_DEVICES,
                                     sizeof(cl_device_id) * 16, &o->devices, NULL);
-	check_succeeded("Getting context info", o->err);
+    check_succeeded("Getting context info", o->err);
 	while ((cl_uint)i < o->num_devices)
 	{
-		o->cmd_queue[i] = cl_cmnd_q(o->context, o->devices[i], &o->err);
-		check_succeeded("Creating command queue", o->err);
+		o->cmd_queue[i] = clCreateCommandQueueWithProperties(o->context, o->devices[i], 0, &o->err);
+        check_succeeded("Creating command queue", o->err);
 		i++;
 	}
 }
 
-static void	run_kernel(t_fol *fol)
+static void	run_kernel(application_offscreen_buffer Buffer, t_fol *fol)
 {
 	t_ocl			*o;
 	size_t			d_size[2];
@@ -69,48 +78,19 @@ static void	run_kernel(t_fol *fol)
 	unsigned int	i;
 
 	i = 0;
-	d_size[0] = W;
-	d_size[1] = H;
+	d_size[0] = Buffer.Width;
+	d_size[1] = Buffer.Height;
 	d_offset[0] = 0;
 	d_offset[1] = d_size[1] * i;
-	offset = d_offset[1] * 3 * W;
+	offset = d_offset[1] * 3 * Buffer.Width;
 	o = &fol->ocl;
 	while (i < fol->ocl.num_devices)
 	{
 		o->err = clEnqueueNDRangeKernel(o->cmd_queue[i], o->krnl, 2,
                                         d_offset, d_size, NULL, 0, NULL, NULL);
 		check_succeeded("Running kernel", o->err);
-		o->err = clEnqueueReadBuffer(o->cmd_queue[i], o->image, CL_FALSE,
-                                     offset, o->buff_size / o->num_devices, fol->img, 0, NULL, NULL);
-		check_succeeded("Reading buffer", fol->ocl.err);
-		i++;
+        o->err = clEnqueueReadBuffer(o->cmd_queue[i], o->image, CL_FALSE, offset, (o->buff_size / o->num_devices), fol->img, 0, NULL, NULL);
+        check_succeeded("Reading buffer", fol->ocl.err);
+        i++;
 	}
-}
-
-int			run_cl(t_fol *fol, int x, int y)
-{
-	t_args			arg;
-	unsigned int	i;
-	unsigned int	j;
-
-	arg = init_kernel_args();
-	j = 0;
-	if (!(fol->flag & (1UL << 4)))
-	{
-		i = 0;
-		get_context(fol, i);
-		fol->ocl.image = clCreateBuffer(fol->ocl.context, CL_MEM_WRITE_ONLY,
-                                        fol->ocl.buff_size, NULL, &fol->ocl.err);
-		check_succeeded("Creating buffer", fol->ocl.err);
-		while (j < 9)
-		{
-			if (fol->frac & 1 << j)
-				fol->ocl.krnl = load_krnl(fol->ocl.context, arg.args[j]);
-			j++;
-		}
-	}
-	ft_init_args(fol, x, y);
-	run_kernel(fol);
-	//clFinish(fol->ocl.cmd_queue[0]);
-	return (0);
 }
