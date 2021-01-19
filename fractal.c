@@ -7,7 +7,7 @@
 #include "srcs/cl_init.c"
 #include "srcs/cl_helper.c"
 #include "srcs/keyspress.c"
-#include "opencl/constant_strings.c"
+#include "constant_strings.c"
 
 internal void
 GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
