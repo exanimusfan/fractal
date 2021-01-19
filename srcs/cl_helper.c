@@ -34,7 +34,6 @@ void		print_debug_info(cl_context context)
 	int				elements;
 	int				i;
 
-	//ft_bzero(&d, sizeof(t_dbug));
 	d.err = clGetContextInfo(context, CL_CONTEXT_DEVICES,
                              sizeof(cl_device_id) * 16, &d.devices, &size);
 	check_succeeded("Getting context info", d.err);
@@ -57,10 +56,6 @@ void		check_succeeded(char *message, cl_int err)
 	if (err != CL_SUCCESS)
 	{
 		DebugOut("%s: %d\n", message, err);	
-		//ft_putstr(message);
-		//ft_putstr(": ");
-		//ft_putnbr(err);
-		//ft_putchar('\n');
 		exit(0);
 	}
 }

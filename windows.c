@@ -150,6 +150,7 @@ Win32OpenAndReadFile(const char *filename, char *source)
     GetFileSizeEx(FileHandle, &FileSize);
     uint32 FileSize32 = (int32)FileSize.QuadPart;
     ReadFile(FileHandle, source, FileSize32, &BytesRead, 0);
+    source[BytesRead] = '\0';
     CloseHandle(FileHandle);
     return (source);
 }
@@ -382,6 +383,26 @@ MainWindowCallback(HWND Window, UINT Message,
                         KeyPress &= ~(1UL << 14);
                     }
                 }
+                if (VKCode == 'Q'){ //Right
+                    if (IsDown)
+                    {
+                        KeyPress |= (1UL << 5);
+                    }
+                    else
+                    {
+                        KeyPress &= ~(1UL << 5);
+                    }
+                }
+                if (VKCode == 'E'){ //Right
+                    if (IsDown)
+                    {
+                        KeyPress |= (1UL << 6);
+                    }
+                    else
+                    {
+                        KeyPress &= ~(1UL << 6);
+                    }
+                }
             }
         }break;
 
@@ -520,7 +541,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             //DebugOut()
             char TempBuffer[256];
             sprintf(TempBuffer, "%fMS/f. %fFPS, %fmc/f\b\n", MSPerFrame, FPS, MCPF);
-            //OutputDebugStringA(TempBuffer);
+            OutputDebugStringA(TempBuffer);
 
             LastCounter = EndCounter;
             LastCycleCount = EndCycleCount;

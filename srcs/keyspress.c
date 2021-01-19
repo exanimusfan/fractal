@@ -47,10 +47,10 @@ void	check_keypress(t_fol *fol)
 		fol->k.iter = 2000;
 	if (fol->keypress & 1UL << 4)
 		fol->k.iter = 3000;
-	if (fol->keypress & 1UL << 5)
-		fol->k.iter = 4000;
-	if (fol->keypress & 1UL << 6)
-		ft_exit(fol);
+	//if (fol->keypress & 1UL << 5)
+    //fol->k.iter = 4000;
+	//if (fol->keypress & 1UL << 6)
+    //ft_exit(fol);
 	if (fol->keypress & 1UL << 7)
 		fol->k.red += fol->k.red / 1000;
 	if (fol->keypress & 1UL << 8)
@@ -77,6 +77,11 @@ void	check_keypress(t_fol *fol)
 		fol->k.blue = 0.5;
 	fol->k.xoffset += fol->accel.x * fol->zoom * 0.0001;
 	fol->k.yoffset += fol->accel.y * fol->zoom * 0.0001;
+#if 0
+    char TempBuffer[256];
+    sprintf(TempBuffer, "offset x %f y %f \n", fol->k.xoffset, fol->k.yoffset);
+    OutputDebugStringA(TempBuffer);
+#endif
 }
 
 
@@ -115,46 +120,4 @@ int			key_func(SDL_Event event, t_fol *fol)
 }
 #endif
 
-#if 0
-int		mouse_mv(t_fol *fol, SDL_Event event)
-{
-	if (event.type == SDL_MOUSEMOTION)
-	{
-		fol->xx = event.motion.x;
-		fol->yy = event.motion.y;
-		if (fol->flag & (1UL))
-		{
-			fol->x = event.motion.x;
-			fol->y = event.motion.y;
-		}
-	}
-	if (event.type == SDL_MOUSEBUTTONDOWN)
-    {
-		if (event.button.button == SDL_BUTTON_RIGHT)
-            fol->flag ^= 1UL;
-	}
-	return (0);
-}
-#endif
 
-#if 0
-int		mouse(t_fol *fol, SDL_Event event)
-{
-	//motion = (t_f64)(event.motion.xrel * 0.001f);
-	mouse_mv(fol, event);
-	if (event.type == SDL_MOUSEWHEEL)
-	{
-		if (event.wheel.y > 0)
-			fol->zoom *= 1.1f;
-        else if (event.wheel.y < 0)
-			fol->zoom *= 0.9f;
-		fol->k.xoffset += (((double)fol->xx / W * 3.5f) - 2.5f) * (fol->zoom * 0.1f);
-		fol->k.yoffset += (((double)fol->yy / H * 2.5f) - 1.25f) * (fol->zoom * 0.1f);
-		fol->k.xmax = 3.5f * fol->zoom;
-		fol->k.xmin = 2.5f * fol->zoom;
-		fol->k.ymax = 2.5f * fol->zoom;
-		fol->k.ymin = 1.25f * fol->zoom;
-	}
-	return (0);
-}
-#endif

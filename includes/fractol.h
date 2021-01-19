@@ -85,9 +85,7 @@ typedef struct s_fol
 	float         zoom;
 	t_args         a;
 	int            keypress;
-    int            xx;
-	int            yy;
-	int            x;
+    int            x;
 	int            y;
 	int            test;
     t_2d           accel;

@@ -22,8 +22,8 @@ static t_mdl	mdl_init(t_krn k, float xoffset, float yoffset)
 	m.y_dim = get_global_id(1);
 	m.width = get_global_size(0);
 	m.height = get_global_size(1);
-	m.x_origin = ((((float)m.x_dim / m.width) * k.xmax - k.xmin)) + k.xoffset;
-	m.y_origin = ((((float)m.y_dim / m.height) * k.ymax - k.ymin)) + k.yoffset;
+	m.x_origin = ((float)m.x_dim / m.width * k.xmax - k.xmin) + k.xoffset;
+	m.y_origin = ((float)m.y_dim / m.height * k.ymax - k.ymin) + k.yoffset;
 	m.x = 0.0;
 	m.y = 0.0;
 	return (m);
