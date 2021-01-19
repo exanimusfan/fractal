@@ -26,9 +26,9 @@ int			finish_cl(cl_context context,
 
 static void	ft_init_args(t_fol *fol)
 {
-	fol->flag |= (1UL << 4);
-	fol->ocl.err = clSetKernelArg(fol->ocl.krnl, 0,
-                                  sizeof(cl_mem), &fol->ocl.image);
+	fol->flag |= (1UL << 4); //NOTE: The arguments have been set ???
+    // TODO(V Caraulan): The enums are a must for this flag
+	fol->ocl.err = clSetKernelArg(fol->ocl.krnl, 0, sizeof(cl_mem), &fol->ocl.image);
     fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 1, sizeof(t_krn), &fol->k);
     fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 2, sizeof(int), &fol->x);
     fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 3, sizeof(int), &fol->y);

@@ -11,17 +11,18 @@
 /* ************************************************************************** */
 
 #include "fractol.h"
+#include "fractal.h"
 
 static void	acceleration_movement(t_fol *fol)
 {
     int	neg;
 
-    if (fol->keypress & 1UL << 15 || fol->keypress & 1UL << 16)
+    if (fol->keypress & 1UL << KEY_W || fol->keypress & 1UL << KEY_S)
 	{
 		neg = (fol->keypress & 1UL << 16) ? 1 : -1;
 		fol->accel.y += neg;
 	}
-	if (fol->keypress & 1UL << 13 || fol->keypress & 1UL << 14)
+	if (fol->keypress & 1UL << KEY_A || fol->keypress & 1UL << KEY_D)
 	{
 		neg = (fol->keypress & 1UL << 14) ? 1 : -1;
 		fol->accel.x += neg;
@@ -30,94 +31,53 @@ static void	acceleration_movement(t_fol *fol)
     fol->accel.y -= fol->accel.y / 2;
 }
 
+float ClampF(float value, float min, float max)
+{
+    if (value > max)
+        value = max;
+    else if (value < min)
+        value = min;
+    return (value);
+}
+
 void	check_keypress(t_fol *fol)
 {
     int i;
 
     i = 0;
-
     acceleration_movement(fol);
-	if (fol->keypress & 1UL)
+	if (fol->keypress & KEY_1)
 		fol->k.iter = 300;
-	if (fol->keypress & 1UL << 1)
+	if (fol->keypress & 1UL << KEY_2)
 		fol->k.iter = 500;
-	if (fol->keypress & 1UL << 2)
+	if (fol->keypress & 1UL << KEY_3)
 		fol->k.iter = 1000;
-	if (fol->keypress & 1UL << 3)
+	if (fol->keypress & 1UL << KEY_4)
 		fol->k.iter = 2000;
-	if (fol->keypress & 1UL << 4)
+	if (fol->keypress & 1UL << KEY_5)
 		fol->k.iter = 3000;
-	//if (fol->keypress & 1UL << 5)
-    //fol->k.iter = 4000;
-	//if (fol->keypress & 1UL << 6)
-    //ft_exit(fol);
-	if (fol->keypress & 1UL << 7)
+	if (fol->keypress & 1UL << KEY_6)
+        fol->k.iter = 4000;
+	if (fol->keypress & 1UL << KEY_ESCAPE)
+        ft_exit(fol);
+	if (fol->keypress & 1UL << KEY_R)
 		fol->k.red += fol->k.red / 1000;
-	if (fol->keypress & 1UL << 8)
+	if (fol->keypress & 1UL << KEY_T)
 		fol->k.red -= fol->k.red / 1000;
-	if (fol->keypress & 1UL << 9)
+	if (fol->keypress & 1UL << KEY_G)
 		fol->k.green += fol->k.green / 1000;
-	if (fol->keypress & 1UL << 10)
+	if (fol->keypress & 1UL << KEY_H)
 		fol->k.green -= fol->k.green / 1000;
-	if (fol->keypress & 1UL << 11)
+	if (fol->keypress & 1UL << KEY_B)
 		fol->k.blue += fol->k.blue / 1000;
-	if (fol->keypress & 1UL << 12)
+	if (fol->keypress & 1UL << KEY_N)
 		fol->k.blue -= fol->k.blue / 1000;
-	if (fol->k.red < 0.001f)
-		fol->k.red = 0.001;
-	if (fol->k.green < 0.001f)
-		fol->k.green = 0.001;
-	if (fol->k.blue < 0.001f)
-		fol->k.blue = 0.001;
-	if (fol->k.red > 0.5)
-		fol->k.red = 0.5;
-	if (fol->k.green > 0.5)
-		fol->k.green = 0.5;
-	if (fol->k.blue > 0.5)
-		fol->k.blue = 0.5;
-	fol->k.xoffset += fol->accel.x * fol->zoom * 0.0001;
-	fol->k.yoffset += fol->accel.y * fol->zoom * 0.0001;
-#if 0
-    char TempBuffer[256];
-    sprintf(TempBuffer, "offset x %f y %f \n", fol->k.xoffset, fol->k.yoffset);
-    OutputDebugStringA(TempBuffer);
-#endif
+
+    fol->k.red = ClampF(fol->k.red, 0.001f, 0.5f);
+    fol->k.green = ClampF(fol->k.green, 0.001f, 0.5f);
+    fol->k.blue = ClampF(fol->k.blue, 0.001f, 0.5f);
+
+    // TODO(V Caraulan): This should work depending on xmax and ymax (or min)
+    fol->k.xoffset += fol->accel.x * fol->zoom * 0.1;
+	fol->k.yoffset += fol->accel.y * fol->zoom * 0.1;
 }
-
-
-#if 0
-// TODO(V Caraulan): These keys should'n be dependend on a platform layer (SDL)
-check_key(fol, event, SDL_SCANCODE_1, 1UL);
-check_key(fol, event, SDL_SCANCODE_2, 1UL << 1);
-check_key(fol, event, SDL_SCANCODE_3, 1UL << 2);
-check_key(fol, event, SDL_SCANCODE_4, 1UL << 3);
-check_key(fol, event, SDL_SCANCODE_5, 1UL << 4);
-check_key(fol, event, SDL_SCANCODE_6, 1UL << 5);
-check_key(fol, event, SDL_SCANCODE_ESCAPE, 1UL << 6);
-check_key(fol, event, SDL_SCANCODE_R, 1UL << 7);
-check_key(fol, event, SDL_SCANCODE_T, 1UL << 8);
-check_key(fol, event, SDL_SCANCODE_G, 1UL << 9);
-check_key(fol, event, SDL_SCANCODE_H, 1UL << 10);
-check_key(fol, event, SDL_SCANCODE_B, 1UL << 11);
-check_key(fol, event, SDL_SCANCODE_N, 1UL << 12);
-check_key(fol, event, SDL_SCANCODE_A, 1UL << 13);
-check_key(fol, event, SDL_SCANCODE_D, 1UL << 14);
-check_key(fol, event, SDL_SCANCODE_W, 1UL << 15);
-check_key(fol, event, SDL_SCANCODE_S, 1UL << 16);
-//if (event.key.keysym.scancode == SDL_SCANCODE_RETURN)
-//else if (event.key.keysym.scancode == SDL_SCANCODE_SPACE)
-return (0);
-}
-int			key_func(SDL_Event event, t_fol *fol)
-{
-	key_press(fol->sdl.event, fol);
-    if (event.key.keysym.scancode == SDL_SCANCODE_EQUALS)
-		fol->k.iter++;
-	if (event.key.keysym.scancode == SDL_SCANCODE_MINUS && fol->k.iter > 100)
-		fol->k.iter--;
-	mouse(fol, fol->sdl.event);
-    return (0);
-}
-#endif
-
-

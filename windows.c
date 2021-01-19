@@ -43,6 +43,9 @@ void WINAPIV DebugOut(const TCHAR *fmt, ...) {
 }
 #endif
 
+#if Profiling
+# include <stdio.h>
+#endif
 #include "windows_layer.h"
 #include "fractal.h"
 #include "fractal.c"
@@ -76,7 +79,7 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 
-void
+internal void
 Win32InitDSound(HWND Window, win32_sound_output *SoundOutput)
 {
     HMODULE DirectSoundLibrary = LoadLibraryA("dsound.dll");
@@ -179,7 +182,7 @@ Win32LoadXInput(void)
 #define XInputGetState XInputGetState_
 #define XInputSetState XInputSetState_
 
-win32_window_dimension
+internal win32_window_dimension
 GetWindowDimension(HWND Window)
 {
     win32_window_dimension Result;
@@ -191,7 +194,7 @@ GetWindowDimension(HWND Window)
     return (Result);
 }
 
-win32_sound_output
+internal win32_sound_output
 GetDefaultSoundOutput(void)
 {
     win32_sound_output SoundOutput = {0};
@@ -227,8 +230,6 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, win32_window_dimension Dim
 
     Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     Buffer->Pitch = Buffer->Width * Buffer->BytesPerPixel;
-
-    //DebugOut("This has been resized\n");
 }
 
 
@@ -236,23 +237,11 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, win32_window_dimension Dim
 internal void
 Win32DisplayBufferInWindow(HDC DeviceContext, win32_window_dimension Dimension, win32_offscreen_buffer Buffer, int X, int Y)
 {
-    int LowHighResolution = 0;
-    if (LowHighResolution == 0)
-    {
-        StretchDIBits(DeviceContext,
-                      0, 0, Buffer.Width, Buffer.Height,
-                      0, 0, Dimension.Width , Dimension.Height,
-                      Buffer.Memory, &Buffer.Info,
-                      DIB_RGB_COLORS, SRCCOPY);
-    }
-    else
-    {
-        StretchDIBits(DeviceContext,
-                      0, 0, Buffer.Width, Buffer.Height,
-                      0, 0, Dimension.Width * 0.5, Dimension.Height * 0.5,
-                      Buffer.Memory, &Buffer.Info,
-                      DIB_RGB_COLORS, SRCCOPY);
-    }
+    StretchDIBits(DeviceContext,
+                  0, 0, Buffer.Width, Buffer.Height,
+                  0, 0, Dimension.Width , Dimension.Height,
+                  Buffer.Memory, &Buffer.Info,
+                  DIB_RGB_COLORS, SRCCOPY);
 }
 
 internal void
@@ -311,17 +300,14 @@ MainWindowCallback(HWND Window, UINT Message,
         } break;
         case WM_MOUSEWHEEL:
         {
-            KeyPress |= 1UL << 17;
+            KeyPress |= 1UL << MOUSE_SCROLL_DOWN;
             int ScrollDirection = ((short) HIWORD(WParam)< 0) ? -1 : +1;
-            if (ScrollDirection < 1)
-                KeyPress |= 1UL << 18;
-            //DebugOut("keypress %d\n", KeyPress);
-            GlobalBuffer.LowHighResolution = 1;
+            if (ScrollDirection == 1)
+                KeyPress |= 1UL << MOUSE_SCROLL_UP;
         } break;
 #if 0
         case WM_MOUSEMOVE:
         {
-            GlobalBuffer.LowHighResolution = 1;
             int MKCode = WParam;
 
             if (MKCode == )
@@ -331,77 +317,37 @@ MainWindowCallback(HWND Window, UINT Message,
         case WM_KEYDOWN:
         {
             int VKCode = WParam;
-            int WasDown = ((LParam & (1 << 30)) != 0);
+            int WasDown = ((LParam & (1 << 30)) != 0); //NOTE: variable names explain the bit shift
             int IsDown = ((LParam & (1 << 31)) == 0);
-            if (IsDown)
-                GlobalBuffer.LowHighResolution = 1;
             if (IsDown != WasDown)
             {
                 if (VKCode == VK_ESCAPE){ //Quit
                     if (IsDown)
-                    {
                         GlobalRunning = 0;
-                    }
                 }
                 if (VKCode == 'W'){ //Up
                     if (IsDown)
-                    {
-                        KeyPress |= (1UL << 15);
-                    }
+                        KeyPress |= (1UL << KEY_W);
                     else
-                    {
-                        KeyPress &= ~(1UL << 15);
-                    }
+                        KeyPress &= ~(1UL << KEY_W);
                 }
                 if (VKCode == 'S'){ //Down
                     if (IsDown)
-                    {
-                        KeyPress |= (1UL << 16);
-                    }
+                        KeyPress |= (1UL << KEY_S);
                     else
-                    {
-                        KeyPress &= ~(1UL << 16);
-                    }
+                        KeyPress &= ~(1UL << KEY_S);
                 }
                 if (VKCode == 'A'){ //Left
                     if (IsDown)
-                    {
-                        KeyPress |= (1UL << 13);
-                    }
+                        KeyPress |= (1UL << KEY_A);
                     else
-                    {
-                        KeyPress &= ~(1UL << 13);
-                    }
+                        KeyPress &= ~(1UL << KEY_A);
                 }
                 if (VKCode == 'D'){ //Right
                     if (IsDown)
-                    {
-                        KeyPress |= (1UL << 14);
-                    }
+                        KeyPress |= (1UL << KEY_D);
                     else
-                    {
-                        KeyPress &= ~(1UL << 14);
-                    }
-                }
-                if (VKCode == 'Q'){ //Right
-                    if (IsDown)
-                    {
-                        KeyPress |= (1UL << 5);
-                    }
-                    else
-                    {
-                        KeyPress &= ~(1UL << 5);
-                    }
-                }
-                if (VKCode == 'E'){ //Right
-                    if (IsDown)
-                    {
-                        KeyPress |= (1UL << 6);
-                    }
-                    else
-                    {
-                        KeyPress &= ~(1UL << 6);
-                    }
+                        KeyPress &= ~(1UL << KEY_D);
                 }
             }
         }break;
@@ -445,11 +391,6 @@ MainWindowCallback(HWND Window, UINT Message,
     }
     return (Result);
 }
-
-// TODO(V Caraulan): Remove this include if not using printf ?
-#if Profiling
-# include <stdio.h>
-#endif
 
 int
 WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
@@ -538,7 +479,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             f32 FPS = (f32)PerfCountFrequency / (f32)CounterElapsed;
             f32 MCPF = (f32)(CycleElapsed / (1000.0f * 1000.0f));
 
-            //DebugOut()
             char TempBuffer[256];
             sprintf(TempBuffer, "%fMS/f. %fFPS, %fmc/f\b\n", MSPerFrame, FPS, MCPF);
             OutputDebugStringA(TempBuffer);

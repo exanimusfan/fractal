@@ -9,7 +9,6 @@ typedef struct
     int  Height;
     int  Pitch;
     int  BytesPerPixel;
-    int  LowHighResolution;
 }              application_offscreen_buffer;
 
 typedef struct
@@ -19,28 +18,29 @@ typedef struct
     int16 *Samples;
 }              game_sound_output_buffer;
 
-#if 0
 typedef enum 
 {
-    SDL_SCANCODE_1, 1UL);
-    SDL_SCANCODE_2, 1UL << 1);
-    SDL_SCANCODE_3, 1UL << 2);
-    SDL_SCANCODE_4, 1UL << 3);
-    SDL_SCANCODE_5, 1UL << 4);
-    SDL_SCANCODE_6, 1UL << 5);
-    SDL_SCANCODE_ESCAPE, 1UL << 6);
-    SDL_SCANCODE_R, 1UL << 7);
-    SDL_SCANCODE_T, 1UL << 8);
-    SDL_SCANCODE_G, 1UL << 9);
-    SDL_SCANCODE_H, 1UL << 10);
-    SDL_SCANCODE_B, 1UL << 11);
-    SDL_SCANCODE_N, 1UL << 12);
-    SDL_SCANCODE_A, 1UL << 13);
-    SDL_SCANCODE_D, 1UL << 14);
-    SDL_SCANCODE_W, 1UL << 15);
-    SDL_SCANCODE_S, 1UL << 16);
-};
-#endif
+    DEFAULT, //0
+    KEY_1,
+    KEY_2,
+    KEY_3,
+    KEY_4,
+    KEY_5,
+    KEY_6,
+    KEY_ESCAPE,
+    KEY_R,
+    KEY_T,
+    KEY_G,
+    KEY_H,
+    KEY_B,
+    KEY_N,
+    KEY_A, // 14
+    KEY_D, // 15
+    KEY_W,
+    KEY_S,
+    MOUSE_SCROLL_DOWN,
+    MOUSE_SCROLL_UP
+} my_keys;
 
 internal void ApplicationUpdateAndRender(application_offscreen_buffer Buffer, int *keypress);
 internal char *load_program_source(const char *filename, char *source);

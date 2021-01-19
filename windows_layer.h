@@ -10,7 +10,6 @@ typedef struct
     int  Height;
     int  Pitch;
     int  BytesPerPixel;
-    int  LowHighResolution;
 }              win32_offscreen_buffer;
 
 typedef struct
