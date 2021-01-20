@@ -20,7 +20,7 @@ typedef struct
 
 typedef enum 
 {
-    DEFAULT, //0
+    DEFAULT,
     KEY_1,
     KEY_2,
     KEY_3,
@@ -34,15 +34,18 @@ typedef enum
     KEY_H,
     KEY_B,
     KEY_N,
-    KEY_A, // 14
-    KEY_D, // 15
+    KEY_A,
+    KEY_D,
     KEY_W,
     KEY_S,
+    KEY_PLUS,
+    KEY_MINUS,
     MOUSE_SCROLL_DOWN,
-    MOUSE_SCROLL_UP
+    MOUSE_SCROLL_UP,
+    RESOLUTION_LOW
 } my_keys;
 
-internal void ApplicationUpdateAndRender(application_offscreen_buffer Buffer, int *keypress);
+internal void ApplicationUpdateAndRender(application_offscreen_buffer Buffer, uint64 *keypress);
 internal char *load_program_source(const char *filename, char *source);
 
 #define FRACTAL_H

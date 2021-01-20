@@ -9,38 +9,38 @@ typedef struct	s_jul
 {
 	int		x_dim;
 	int		y_dim;
-	float	zx;
-	float	zy;
-	float	ci;
-	float	cr;
-	float	x_origin;
-	float	y_origin;
+	double	zx;
+	double	zy;
+	double	ci;
+	double	cr;
+	double	x_origin;
+	double	y_origin;
 	size_t	width;
 	size_t	height;
 }				t_jul;
 
 typedef struct	s_krn
 {
-	float	xmin;
-	float	xmax;
-	float	ymin;
-	float	ymax;
-	float	xoffset;
-	float	yoffset;
+	double	xmin;
+	double	xmax;
+	double	ymin;
+	double	ymax;
+	double	xoffset;
+	double	yoffset;
 	int		iter;
-	float	red;
-	float	green;
-	float	blue;
+	double	red;
+	double	green;
+	double	blue;
 }				t_krn;
 
 typedef struct	s_mdl
 {
-	float	x;
-	float	y;
+	double	x;
+	double	y;
 	int		x_dim;
 	int		y_dim;
-	float	x_origin;
-	float	y_origin;
+	double	x_origin;
+	double	y_origin;
 	size_t	width;
 	size_t	height;
 }				t_mdl;

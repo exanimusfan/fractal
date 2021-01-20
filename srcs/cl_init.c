@@ -54,8 +54,8 @@ static void	get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
     o->context = create_context(fol->dtype, &o->num_devices);
     if (o->num_devices == 0)
 	{
-        DebugOut("No compute devices found\n");
-		exit(-1);
+        OutputDebugStringA("No compute devices found\n");
+        exit(-1);
 	}
 	print_debug_info(o->context);
 	fol->ocl.err = clGetContextInfo(o->context, CL_CONTEXT_DEVICES,
@@ -71,26 +71,22 @@ static void	get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
 
 static void	run_kernel(application_offscreen_buffer Buffer, t_fol *fol)
 {
-	t_ocl			*o;
-	size_t			d_size[2];
-	size_t			d_offset[2];
-	size_t			offset;
-	unsigned int	i;
+	t_ocl  *o;
+	size_t d_size[2];
 
-	i = 0;
-	d_size[0] = Buffer.Width;
-	d_size[1] = Buffer.Height;
-	d_offset[0] = 0;
-	d_offset[1] = d_size[1] * i;
-	offset = d_offset[1] * 3 * Buffer.Width;
-	o = &fol->ocl;
-	while (i < fol->ocl.num_devices)
-	{
-		o->err = clEnqueueNDRangeKernel(o->cmd_queue[i], o->krnl, 2,
-                                        d_offset, d_size, NULL, 0, NULL, NULL);
-		check_succeeded("Running kernel", o->err);
-        o->err = clEnqueueReadBuffer(o->cmd_queue[i], o->image, CL_FALSE, offset, (o->buff_size / o->num_devices), fol->img, 0, NULL, NULL);
-        check_succeeded("Reading buffer", fol->ocl.err);
-        i++;
-	}
+    if (fol->flag & (1UL << FLAG_RESOLUTION_LOW))
+    {
+        d_size[0] = Buffer.Width / 10;
+        d_size[1] = Buffer.Height / 10;
+    }
+    else
+    {
+        d_size[0] = Buffer.Width;
+        d_size[1] = Buffer.Height;
+    }
+    o = &fol->ocl;
+    o->err = clEnqueueNDRangeKernel(o->cmd_queue[0], o->krnl, 2, 0, d_size, NULL, 0, NULL, NULL);
+    check_succeeded("Running kernel", o->err);
+    o->err = clEnqueueReadBuffer(o->cmd_queue[0], o->image, CL_FALSE, 0, o->buff_size, fol->img, 0, NULL, NULL);
+    check_succeeded("Reading buffer", fol->ocl.err);
 }

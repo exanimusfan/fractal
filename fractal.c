@@ -39,13 +39,15 @@ BuildErrors(cl_program program, void *user_data)
     size_t size = 0;
 
     device = user_data;
-    err = clGetProgramBuildInfo (program, *device, CL_PROGRAM_BUILD_LOG, sizeof(Output), &Output[0],&size);
-    DebugOut("Build info :\n%sEND\nsize = %d\n", Output);
+    err = clGetProgramBuildInfo (program, *device,
+                                 CL_PROGRAM_BUILD_LOG, sizeof(Output), &Output[0], &size);
+    char TempBuffer[512];
+    sprintf(TempBuffer, "Build info :\n%sEND\nsize = %lld\n", Output, size);
+    OutputDebugStringA(TempBuffer);
 }
 
 internal cl_kernel
-load_krnl(cl_device_id device, cl_context context,
-          const char *filename)
+load_krnl(cl_device_id device, cl_context context)
 {
     size_t	size;
     cl_program	program[1];
@@ -59,7 +61,7 @@ load_krnl(cl_device_id device, cl_context context,
         program[0] = clCreateProgramWithSource(context, 1,
                                                (const char**)&program_source, NULL, &err);
         check_succeeded("Loading kernel", err);
-		err = clBuildProgram(program[0], 0, NULL, "-cl-fast-relaxed-math -Werror -I opencl",
+		err = clBuildProgram(program[0], 0, NULL, "-cl-single-precision-constant -cl-finite-math-only -cl-unsafe-math-optimizations ",
                              BuildErrors, &device);
         check_succeeded("Building program", err);
 		kernel[0] = clCreateKernel(program[0], "render", &err);
@@ -76,63 +78,29 @@ load_krnl(cl_device_id device, cl_context context,
 internal int 
 run_cl(application_offscreen_buffer Buffer, t_fol *fol)
 {
-	t_args		arg;
 	unsigned int	j;
 
-	arg = init_kernel_args();
 	j = 0;
-	if (!(fol->flag & (1UL << 4)) || fol->old_buffer_size.x != Buffer.Width || fol->old_buffer_size.y != Buffer.Height)
-	{
-        DebugOut("Reallocate buffer ? \n");
-        fol->old_buffer_size.x = Buffer.Width;
-        fol->old_buffer_size.y = Buffer.Height;
-        clFinish(fol->ocl.cmd_queue[0]);
-        finish_cl(fol->ocl.context, fol->ocl.cmd_queue[0], fol->ocl.image);
-        fol->x = Buffer.Width / 2;
-        fol->y = Buffer.Height / 2;
+    if (!(fol->flag & (1UL << FLAG_CL_INITIALIZED)))
+    {
+        fol->x = 0;
+        fol->y = 0;
         get_context(Buffer, fol, 0);
         fol->ocl.image = clCreateBuffer(fol->ocl.context, CL_MEM_WRITE_ONLY,
                                         fol->ocl.buff_size, NULL, &fol->ocl.err);
         check_succeeded("Creating buffer", fol->ocl.err);
-        fol->frac = 1;
-        while (j < 9)
-		{
-			if (fol->frac & 1 << j)
-            {
-				fol->ocl.krnl = load_krnl(fol->ocl.devices[0], fol->ocl.context, arg.args[j]);
-            }
-            j++;
-		}
-	}
-	ft_init_args(fol);
-	run_kernel(Buffer, fol);
-	clFinish(fol->ocl.cmd_queue[0]);
-#if 0
-    int MiddleX = Buffer.Width / 2;
-    int MiddleY = Buffer.Height / 2;
-    int Iterator = 0;
-
-    int *Middle = Buffer.Memory;
-
-    while (Iterator < Buffer.Width)
-    {
-        Middle[(MiddleY * Buffer.Width) + Iterator] = 0xFFFF0000;
-        Iterator++;
+        fol->ocl.krnl = load_krnl(fol->ocl.devices[0], fol->ocl.context);
+        fol->flag |= 1UL << FLAG_CL_INITIALIZED;
     }
-    Iterator = 0;
-    while (Iterator < Buffer.Height)
-    {
-        Middle[(Iterator * Buffer.Width) + MiddleX] = 0xFFFF0000;
-        Iterator++;
-    }
-#endif
-	return (0);
+    clFinish(fol->ocl.cmd_queue[0]);
+    ft_init_args(fol);
+    if (clBuildProgram)
+        run_kernel(Buffer, fol);
+    return (0);
 }
 
-//TODO: Implemented the flag system, what remains is enum for better readability
-
 internal void
-ApplicationUpdateAndRender(application_offscreen_buffer Buffer, int *keypress)
+ApplicationUpdateAndRender(application_offscreen_buffer Buffer, uint64 *keypress)
 {
     local_persist t_fol fol;
 
@@ -144,14 +112,12 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer, int *keypress)
         float xrange;
         float yrange;
 
-        fol.flag ^= 1UL;
-        fol.flag ^= 1UL << 2; // TODO(V Caraulan): enum for fol.flag ?
+        fol.flag ^= FLAG_INITIALIZED;
         xrange = 6;
         yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
         fol.k.red = 0.002f;
         fol.k.green = 0.003f;
         fol.k.blue = 0.005f;
-        fol.zoom = 1;
         fol.k.xoffset = -9.04f;
         fol.k.yoffset = -4.84f;
         fol.k.xmin = -xrange;
@@ -159,7 +125,7 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer, int *keypress)
         fol.k.ymin = -yrange;
         fol.k.ymax = yrange;
 
-        fol.k.iter = 10000;
+        fol.k.iter = 1000;
         fol.x = Buffer.Width / 2;
         fol.y = Buffer.Height / 2;
         fol.keypress = 0;
@@ -170,9 +136,10 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer, int *keypress)
         run_cl(Buffer, &fol);
     }
 
-    if (fol.keypress != 0 || fol.accel.x != 0 || fol.accel.y != 0)
+    if ((fol.keypress != 0 && !(fol.keypress & (1UL << RESOLUTION_LOW))) || fol.accel.x != 0 || fol.accel.y != 0)
     {
         check_keypress(&fol);
+        fol.flag |= (1UL << FLAG_RESOLUTION_LOW);
         if (*keypress & (1UL << MOUSE_SCROLL_DOWN))
         {
             float xmaxBefore;
@@ -180,25 +147,37 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer, int *keypress)
 
             xmaxBefore = fol.k.xmax;
             ymaxBefore = fol.k.ymax;
-            fol.zoom = 1.01f;
             if (*keypress & (1UL << MOUSE_SCROLL_UP))
-                fol.zoom = 0.99f;
-            fol.k.xmax *= fol.zoom;
-            fol.k.xmin *= fol.zoom;
-            fol.k.ymax *= fol.zoom;
-            fol.k.ymin *= fol.zoom;
+            {
+                fol.k.xmax += fol.k.xmax * 0.1f;
+                fol.k.xmin += fol.k.xmin * 0.1f;
+                fol.k.ymax += fol.k.ymax * 0.1f;
+                fol.k.ymin += fol.k.ymin * 0.1f;
+            }
+            else
+            {
+                fol.k.xmax -= fol.k.xmax * 0.1f;
+                fol.k.xmin -= fol.k.xmin * 0.1f;
+                fol.k.ymax -= fol.k.ymax * 0.1f;
+                fol.k.ymin -= fol.k.ymin * 0.1f;
+            }
             fol.k.xoffset += (xmaxBefore - fol.k.xmax) * 1.5;
             fol.k.yoffset += (ymaxBefore - fol.k.ymax) * 1.5;
         }
         run_cl(Buffer, &fol);
-
-#if 0
-        char TempBuffer[256];
-        sprintf(TempBuffer, "\txmin = %f xmax = %f\n\tymin = %f ymax = %f\n\tzoom = %f\n\txoffset = %f yoffset = %f\n", fol.k.xmax, fol.k.xmin, fol.k.ymax, fol.k.ymin, fol.zoom, fol.k.xoffset, fol.k.yoffset);
-        OutputDebugStringA(TempBuffer);
-#endif
+        *keypress |= (1UL << RESOLUTION_LOW);
     }
-    fol.zoom = 1;
+    else
+    {
+        if (fol.flag & (1UL << FLAG_RESOLUTION_LOW))
+        {
+            fol.flag &= ~(1UL << FLAG_RESOLUTION_LOW);
+            run_cl(Buffer, &fol);
+            *keypress &= ~(1UL << RESOLUTION_LOW);
+        }
+    }
+    // TODO(V Caraulan): Deal with this somehow
+    // (everytime I scroll I render the low and high resolution because of this reset)
     *keypress &= ~(1UL << MOUSE_SCROLL_DOWN);
     *keypress &= ~(1UL << MOUSE_SCROLL_UP);
 }

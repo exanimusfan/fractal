@@ -46,7 +46,9 @@ void		print_debug_info(cl_context context)
 		d.err |= clGetDeviceInfo(d.devices[i], CL_DEVICE_NAME,
                                  sizeof(d.device_name), d.device_name, NULL);
         check_succeeded("Getting device info", d.err);
-        DebugOut("Device: %d %s %s\n", i, d.vendor_name, d.device_name);
+        char TempBuffer[256];
+        sprintf(TempBuffer, "Device: %d %s %s\n", i, d.vendor_name, d.device_name);
+        OutputDebugStringA(TempBuffer);
         i++;
 	}
 }
@@ -55,7 +57,9 @@ void		check_succeeded(char *message, cl_int err)
 {
 	if (err != CL_SUCCESS)
 	{
-		DebugOut("%s: %d\n", message, err);	
+        char TempBuffer[256];
+        sprintf(TempBuffer, "%s: %d\n", message, err);
+        OutputDebugStringA(TempBuffer);
 		exit(0);
 	}
 }

@@ -32,7 +32,7 @@ typedef double f64;
 #include <io.h>
 #include <fileapi.h>
 
-#if 1
+#if 0
 void WINAPIV DebugOut(const TCHAR *fmt, ...) {
     TCHAR s[4096];
     va_list args;
@@ -54,7 +54,7 @@ void WINAPIV DebugOut(const TCHAR *fmt, ...) {
 
 global_variable  int GlobalRunning;
 global_variable  win32_offscreen_buffer GlobalBuffer;
-global_variable  int KeyPress;
+global_variable  uint64  KeyPress;
 
 // TODO(V Caraulan): Remove the global variables !!!
 
@@ -232,16 +232,29 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, win32_window_dimension Dim
     Buffer->Pitch = Buffer->Width * Buffer->BytesPerPixel;
 }
 
-
-
 internal void
 Win32DisplayBufferInWindow(HDC DeviceContext, win32_window_dimension Dimension, win32_offscreen_buffer Buffer, int X, int Y)
 {
-    StretchDIBits(DeviceContext,
-                  0, 0, Buffer.Width, Buffer.Height,
-                  0, 0, Dimension.Width , Dimension.Height,
-                  Buffer.Memory, &Buffer.Info,
-                  DIB_RGB_COLORS, SRCCOPY);
+    if (KeyPress & (1UL << RESOLUTION_LOW))
+    {
+        Buffer.Info.bmiHeader.biWidth = Buffer.Width / 10;
+        Buffer.Info.bmiHeader.biHeight = -(Buffer.Height / 10);
+        StretchDIBits(DeviceContext,
+                      0, 0, Dimension.Width, Dimension.Height,
+                      0, 0, Buffer.Width / 10, Buffer.Height / 10,
+                      Buffer.Memory, &Buffer.Info,
+                      DIB_RGB_COLORS, SRCCOPY);
+    }
+    else
+    {
+        Buffer.Info.bmiHeader.biWidth = Buffer.Width;
+        Buffer.Info.bmiHeader.biHeight = -Buffer.Height;
+        StretchDIBits(DeviceContext,
+                      0, 0, Dimension.Width, Dimension.Height,
+                      0, 0, Buffer.Width , Buffer.Height,
+                      Buffer.Memory, &Buffer.Info,
+                      DIB_RGB_COLORS, SRCCOPY);
+    }
 }
 
 internal void
@@ -317,6 +330,7 @@ MainWindowCallback(HWND Window, UINT Message,
         case WM_KEYDOWN:
         {
             int VKCode = WParam;
+
             int WasDown = ((LParam & (1 << 30)) != 0); //NOTE: variable names explain the bit shift
             int IsDown = ((LParam & (1 << 31)) == 0);
             if (IsDown != WasDown)
@@ -325,29 +339,53 @@ MainWindowCallback(HWND Window, UINT Message,
                     if (IsDown)
                         GlobalRunning = 0;
                 }
-                if (VKCode == 'W'){ //Up
+                if (VKCode == 'W' || VKCode == VK_UP){
                     if (IsDown)
                         KeyPress |= (1UL << KEY_W);
                     else
                         KeyPress &= ~(1UL << KEY_W);
                 }
-                if (VKCode == 'S'){ //Down
+                if (VKCode == 'S' || VKCode == VK_DOWN){
                     if (IsDown)
                         KeyPress |= (1UL << KEY_S);
                     else
                         KeyPress &= ~(1UL << KEY_S);
                 }
-                if (VKCode == 'A'){ //Left
+                if (VKCode == 'A' || VKCode == VK_LEFT){
                     if (IsDown)
                         KeyPress |= (1UL << KEY_A);
                     else
                         KeyPress &= ~(1UL << KEY_A);
                 }
-                if (VKCode == 'D'){ //Right
+                if (VKCode == 'D' || VKCode == VK_RIGHT){
                     if (IsDown)
                         KeyPress |= (1UL << KEY_D);
                     else
                         KeyPress &= ~(1UL << KEY_D);
+                }
+                if (VKCode == '1'){
+                    if (IsDown)
+                        KeyPress |= (1UL << KEY_1);
+                    else
+                        KeyPress &= ~(1UL << KEY_1);
+                }
+                if (VKCode == '2'){
+                    if (IsDown)
+                        KeyPress |= (1UL << KEY_2);
+                    else
+                        KeyPress &= ~(1UL << KEY_2);
+                }
+                if (VKCode == VK_OEM_MINUS){
+                    if (IsDown)
+                        KeyPress |= (1UL << KEY_MINUS);
+                    else
+                        KeyPress &= ~(1UL << KEY_MINUS);
+                }
+                if (VKCode == VK_OEM_PLUS){
+                    if (IsDown)
+                        KeyPress |= (1UL << KEY_PLUS);
+                    else
+                        KeyPress &= ~(1UL << KEY_PLUS);
                 }
             }
         }break;
@@ -381,7 +419,7 @@ MainWindowCallback(HWND Window, UINT Message,
             win32_window_dimension Dimension = GetWindowDimension(Window);
             PAINTSTRUCT Paint;
             HDC DeviceContext = BeginPaint(Window, &Paint);
-            Win32DisplayBufferInWindow(DeviceContext, Dimension, GlobalBuffer, 0, 0);
+            //Win32DisplayBufferInWindow(DeviceContext, Dimension, GlobalBuffer, 0, 0);
             EndPaint(Window, &Paint);
         } break;
         default:
@@ -399,7 +437,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
     WNDCLASS WindowClass      = {0};
     HWND Window               = NULL;
 
-    Win32ResizeDIBSection(&GlobalBuffer, (win32_window_dimension){1280, 720});
+    Win32ResizeDIBSection(&GlobalBuffer, (win32_window_dimension){1920, 1080});
     WindowClass.style         = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc   = MainWindowCallback;
     WindowClass.hInstance     = Instance;
@@ -420,7 +458,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                                  "Fractal",         // Window text
                                  WS_OVERLAPPEDWINDOW, // Window style
                                  // Size and position
-                                 CW_USEDEFAULT, CW_USEDEFAULT, 1280, 720,
+                                 CW_USEDEFAULT, CW_USEDEFAULT, 1920, 1080,
                                  NULL,       // Parent window    
                                  NULL,       // Menu
                                  WindowClass.hInstance,  // Instance handle
@@ -478,20 +516,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             f32 MSPerFrame = (1000.0f * (f32)CounterElapsed) / (f32)PerfCountFrequency;
             f32 FPS = (f32)PerfCountFrequency / (f32)CounterElapsed;
             f32 MCPF = (f32)(CycleElapsed / (1000.0f * 1000.0f));
-
-            char TempBuffer[256];
-            sprintf(TempBuffer, "%fMS/f. %fFPS, %fmc/f\b\n", MSPerFrame, FPS, MCPF);
-            OutputDebugStringA(TempBuffer);
+            if (FPS < 200)
+            {
+                char TempBuffer[256];
+                sprintf(TempBuffer, "%fMS/f. %fFPS, %fmc/f\b\n", MSPerFrame, FPS, MCPF);
+                OutputDebugStringA(TempBuffer);
+            }
 
             LastCounter = EndCounter;
             LastCycleCount = EndCycleCount;
 #endif
         }
         ReleaseDC(Window, DeviceContext);
-    }
-    else
-    {
-        //OutputDebugStringA("hwnd or register class Failed\n");
     }
     return (0);
 }

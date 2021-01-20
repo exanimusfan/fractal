@@ -25,7 +25,7 @@
 **	-Zoom follows the actual mouse position
 **	-Can increase and decrease iterations with - and =
 **	-Multithreading and posible multi-gpu implementation
-**	-Implemented a zoom out depending on mouse movement
+**	-Implemented a ezoom out depending on mouse movement
 **	-It is compatible with linux and macOS assuming that the
 **	proper libraries are installed (X11, openCL and Xext on linux)
 **	-Added the UI that explains a lot of the functionalities of the keys
@@ -58,45 +58,51 @@ typedef struct		s_ocl
 
 typedef struct		s_krn
 {
-	float	xmin;
-	float	xmax;
-	float	ymin;
-	float	ymax;
-	float	xoffset;
-	float	yoffset;
+	double	xmin;
+	double	xmax;
+	double	ymin;
+	double	ymax;
+	double	xoffset;
+	double	yoffset;
 	int		iter;
-	float	red;
-	float	green;
-	float	blue;
+	double	red;
+	double	green;
+	double	blue;
 }					t_krn;
 
 typedef struct s_2d
 {
-	float x;
-	float y;
+	double x;
+	double y;
 }              t_2d;
 
 typedef struct s_fol
 {
 	int            time;
 	int            time1;
-	float         dt;
+	double         dt;
 	int            totaltime;
-	float         zoom;
 	t_args         a;
-	int            keypress;
+	uint64         keypress;
     int            x;
 	int            y;
 	int            test;
     t_2d           accel;
 	unsigned long  flag;
-	unsigned long  frac;
 	int            *img;
 	t_ocl          ocl;
 	t_krn          k;
 	cl_device_type dtype;
     t_2d           old_buffer_size;
 }              t_fol;
+
+typedef enum
+{
+    NONE,
+    FLAG_INITIALIZED,
+    FLAG_CL_INITIALIZED,
+    FLAG_RESOLUTION_LOW,
+}              my_flag;
 
 void				check_keypress(t_fol *fol);
 //int					mouse(t_fol *fol, SDL_Event event);
