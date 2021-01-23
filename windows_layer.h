@@ -10,6 +10,7 @@ typedef struct
     int  Height;
     int  Pitch;
     int  BytesPerPixel;
+    int  LowResolution;
 }              win32_offscreen_buffer;
 
 typedef struct
@@ -20,15 +21,9 @@ typedef struct
 
 typedef struct
 {
-    LPDIRECTSOUNDBUFFER Buffer;
-    int32               SamplesPerSecond;
-    int32               ToneHz;
-    int16               ToneVolume;
-    int32               BytesPerSample;
-    f32                 WavePeriod;
-    int32               BufferSize;
-    f32                 tSine;
-}              win32_sound_output;
+    uint64 KeyPress;
+    int32 MouseWheel;
+}              win32_input_handle;
 
 #define WINDOWS_LAYER_H
 #endif

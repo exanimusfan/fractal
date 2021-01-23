@@ -1,33 +1,116 @@
+/* *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- */
 /*   fractal.c                                                                */
-/*   By: Victor Caraulan <victor.caraulan@yahoo.com>                          */
+/*   By: V Caraulan <caraulan.victor@yahoo.com>                               */
 /*   Created: 2021/01/12 13:40:21 by V Caraulan                               */
+/* -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* */
 
-#include "fractol.h"
-#include "srcs/exit.c"
-#include "srcs/cl_init.c"
-#include "srcs/cl_helper.c"
-#include "srcs/keyspress.c"
 #include "constant_strings.c"
 
-internal void
-GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
+
+#if 0
+internal int
+finish_cl(cl_context context,
+          cl_command_queue cmd_queue, cl_mem image)
 {
-    local_persist f32 tSine;
-    int16 ToneVolume = 3000;
-    int WavePeriod = SoundBuffer->SamplesPerSecond/ToneHz;
+	if (image != NULL)
+		clReleaseMemObject(image);
+	if (cmd_queue != NULL)
+		clReleaseCommandQueue(cmd_queue);
+	if (context != NULL)
+		clReleaseContext(context);
+	return (0);
+}
+#endif
 
-    int16 *SampleOut = SoundBuffer->Samples;
-    for(int SampleIndex = 0;
-        SampleIndex < SoundBuffer->SampleCount;
-        ++SampleIndex)
+internal void
+NumberDebugOutput(int Number)
+{
+    char StringNumber[16];
+    int Index;
+
+    Index = 0;
+    if (Number < 0)
     {
-        f32 SineValue = sinf(tSine);
-        int16 SampleValue = (int16)(SineValue * ToneVolume);
-        *SampleOut++ = SampleValue;
-        *SampleOut++ = SampleValue;
-
-        tSine += 2.0f*PI32*1.0f/(f32)WavePeriod;
+        StringNumber[0] = '-';
+        Index++;
+        Number = -Number;
     }
+    while (Number > 10)
+    {
+        StringNumber[Index++] = '0' + (Number % 10);
+        Number /= 10;
+    }
+}
+
+internal void
+check_succeeded(char *message, cl_int err)
+{
+    if (err != CL_SUCCESS)
+	{
+        *(char *)(0) = 1; //NOTE: CRASH HARD TODO
+    }
+}
+
+internal void
+print_debug_info(cl_context context)
+{
+	t_dbug			d = {0};
+	size_t			size;
+	size_t			elements;
+	int				i;
+
+	d.err = clGetContextInfo(context, CL_CONTEXT_DEVICES,
+                             sizeof(cl_device_id) * 16, &d.devices, &size);
+	check_succeeded("Getting context info", d.err);
+	elements = size / sizeof(cl_device_id);
+	i = 0;
+	while (i < elements)
+	{
+		d.err = clGetDeviceInfo(d.devices[i], CL_DEVICE_VENDOR,
+                                sizeof(d.vendor_name), d.vendor_name, NULL);
+		d.err |= clGetDeviceInfo(d.devices[i], CL_DEVICE_NAME,
+                                 sizeof(d.device_name), d.device_name, NULL);
+        check_succeeded("Getting device info", d.err);
+        //sprintf(TempBuffer, "Device: %d %s %s\n", i, d.vendor_name, d.device_name);
+
+        i++;
+	}
+}
+
+internal void
+get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
+{
+    t_ocl          *o;
+    cl_int         err;
+    cl_device_id   devices[16] = {0};
+    cl_platform_id platform = {0};
+
+    o            = &fol->ocl;
+	o->buff_size = Buffer.BytesPerPixel * Buffer.Width * Buffer.Height;
+    clGetPlatformIDs(1, &platform, NULL);
+    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 16, devices, &o->num_devices);
+
+    o->context = clCreateContext(0, o->num_devices, devices, NULL, NULL, &err);
+    check_succeeded("Creating context", err);
+    if (o->num_devices == 0)
+	{
+        //OutputDebugStringA("No compute devices found\n");
+        *(char *)(0) = 1; //NOTE: CRASH HARD TODO
+    }
+
+    print_debug_info(o->context);
+
+	fol->ocl.err = clGetContextInfo(o->context, CL_CONTEXT_DEVICES,
+                                    sizeof(cl_device_id) * 16, &o->devices, NULL);
+    check_succeeded("Getting context info", o->err);
+
+    while ((cl_uint)i < o->num_devices)
+	{
+		o->cmd_queue[i] = clCreateCommandQueueWithProperties(o->context, o->devices[i],
+                                                             0, &o->err);
+        check_succeeded("Creating command queue", o->err);
+		i++;
+	}
 }
 
 internal void
@@ -39,17 +122,16 @@ BuildErrors(cl_program program, void *user_data)
     size_t size = 0;
 
     device = user_data;
-    err = clGetProgramBuildInfo (program, *device,
-                                 CL_PROGRAM_BUILD_LOG, sizeof(Output), &Output[0], &size);
-    char TempBuffer[512];
-    sprintf(TempBuffer, "Build info :\n%sEND\nsize = %lld\n", Output, size);
-    OutputDebugStringA(TempBuffer);
+    err = clGetProgramBuildInfo (program, *device, CL_PROGRAM_BUILD_LOG,
+                                 sizeof(Output), &Output[0], &size);
+    //char TempBuffer[512];
+    //sprintf(TempBuffer, "Build info :\n%sEND\nsize = %lld\n", Output, size);
+    //OutputDebugStringA(TempBuffer);
 }
 
 internal cl_kernel
 load_krnl(cl_device_id device, cl_context context)
 {
-    size_t	size;
     cl_program	program[1];
     cl_kernel	kernel[1];
     int		err = 0;
@@ -61,18 +143,14 @@ load_krnl(cl_device_id device, cl_context context)
         program[0] = clCreateProgramWithSource(context, 1,
                                                (const char**)&program_source, NULL, &err);
         check_succeeded("Loading kernel", err);
-		err = clBuildProgram(program[0], 0, NULL, "-cl-single-precision-constant -cl-finite-math-only -cl-unsafe-math-optimizations ",
+		err = clBuildProgram(program[0], 0, NULL,
+                             "-cl-finite-math-only -cl-unsafe-math-optimizations",
                              BuildErrors, &device);
         check_succeeded("Building program", err);
 		kernel[0] = clCreateKernel(program[0], "render", &err);
         check_succeeded("Create Kernel", err);
     }
-    else
-    {
-        *(char *)(0) = 1; //NOTE: CRASH HARD
-        // TODO(V Caraulan): Maybe do something else than crash hard after debug??
-    }
-	return (kernel[0]);
+    return (kernel[0]);
 }
 
 internal int 
@@ -92,21 +170,50 @@ run_cl(application_offscreen_buffer Buffer, t_fol *fol)
         fol->ocl.krnl = load_krnl(fol->ocl.devices[0], fol->ocl.context);
         fol->flag |= 1UL << FLAG_CL_INITIALIZED;
     }
+
     clFinish(fol->ocl.cmd_queue[0]);
-    ft_init_args(fol);
+    fol->ocl.err = clSetKernelArg(fol->ocl.krnl, 0, sizeof(cl_mem), &fol->ocl.image);
+    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 1, sizeof(t_krn), &fol->k);
+    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 2, sizeof(int), &fol->x);
+    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 3, sizeof(int), &fol->y);
+    check_succeeded("Setting kernel arg", fol->ocl.err);
+
     if (clBuildProgram)
-        run_kernel(Buffer, fol);
+    {
+        t_ocl  *o  = &fol->ocl;;
+        size_t d_size[2];
+
+        d_size[0] = Buffer.Width;
+        d_size[1] = Buffer.Height;
+        o->err = clEnqueueNDRangeKernel(o->cmd_queue[0], o->krnl, 2, 0,
+                                        d_size, NULL, 0, NULL, NULL);
+
+        check_succeeded("Running kernel", o->err);
+        o->err = clEnqueueReadBuffer(o->cmd_queue[0], o->image, CL_FALSE,
+                                     0, o->buff_size, fol->img, 0, NULL, NULL);
+        check_succeeded("Reading buffer", fol->ocl.err);
+    }
+
     return (0);
 }
 
+internal double ClampF(double value, double min, double max)
+{
+    if (value > max)
+        value = max;
+    else if (value < min)
+        value = min;
+    return (value);
+}
+
 internal void
-ApplicationUpdateAndRender(application_offscreen_buffer Buffer, uint64 *keypress)
+ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
+						   application_input_handle Input)
 {
     local_persist t_fol fol;
 
     if (Buffer.Memory)
         fol.img = Buffer.Memory;
-    fol.keypress = *keypress;
     if (fol.flag == 0)
     {
         float xrange;
@@ -128,58 +235,71 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer, uint64 *keypress
         fol.k.iter = 1000;
         fol.x = Buffer.Width / 2;
         fol.y = Buffer.Height / 2;
-        fol.keypress = 0;
         fol.accel.x = 0;
         fol.accel.y = 0;
-        fol.old_buffer_size.x = Buffer.Width;
-        fol.old_buffer_size.y = Buffer.Height;
-        run_cl(Buffer, &fol);
     }
+    //     if (not_rendered)
+    int	neg = 0;
 
-    if ((fol.keypress != 0 && !(fol.keypress & (1UL << RESOLUTION_LOW))) || fol.accel.x != 0 || fol.accel.y != 0)
-    {
-        check_keypress(&fol);
-        fol.flag |= (1UL << FLAG_RESOLUTION_LOW);
-        if (*keypress & (1UL << MOUSE_SCROLL_DOWN))
-        {
-            float xmaxBefore;
-            float ymaxBefore;
+    if (Input.KeyPress & 1UL << KEY_W || Input.KeyPress & 1UL << KEY_S)
+	{
+		neg = (Input.KeyPress & 1UL << 16) ? -1 : 1;
+		fol.accel.y += neg;
+        fol.k.yoffset += ((fol.k.ymax) * neg * 0.005f);
+    }
+	if (Input.KeyPress & 1UL << KEY_A || Input.KeyPress & 1UL << KEY_D)
+	{
+		neg = (Input.KeyPress & 1UL << 14) ? -1 : 1;
+		fol.accel.x += neg;
+        fol.k.xoffset += ((fol.k.xmax) * neg * 0.005f);
+    }
+	fol.accel.x -= fol.accel.x / 2;
+    fol.accel.y -= fol.accel.y / 2;
 
-            xmaxBefore = fol.k.xmax;
-            ymaxBefore = fol.k.ymax;
-            if (*keypress & (1UL << MOUSE_SCROLL_UP))
-            {
-                fol.k.xmax += fol.k.xmax * 0.1f;
-                fol.k.xmin += fol.k.xmin * 0.1f;
-                fol.k.ymax += fol.k.ymax * 0.1f;
-                fol.k.ymin += fol.k.ymin * 0.1f;
-            }
-            else
-            {
-                fol.k.xmax -= fol.k.xmax * 0.1f;
-                fol.k.xmin -= fol.k.xmin * 0.1f;
-                fol.k.ymax -= fol.k.ymax * 0.1f;
-                fol.k.ymin -= fol.k.ymin * 0.1f;
-            }
-            fol.k.xoffset += (xmaxBefore - fol.k.xmax) * 1.5;
-            fol.k.yoffset += (ymaxBefore - fol.k.ymax) * 1.5;
-        }
-        run_cl(Buffer, &fol);
-        *keypress |= (1UL << RESOLUTION_LOW);
-    }
-    else
-    {
-        if (fol.flag & (1UL << FLAG_RESOLUTION_LOW))
-        {
-            fol.flag &= ~(1UL << FLAG_RESOLUTION_LOW);
-            run_cl(Buffer, &fol);
-            *keypress &= ~(1UL << RESOLUTION_LOW);
-        }
-    }
-    // TODO(V Caraulan): Deal with this somehow
-    // (everytime I scroll I render the low and high resolution because of this reset)
-    *keypress &= ~(1UL << MOUSE_SCROLL_DOWN);
-    *keypress &= ~(1UL << MOUSE_SCROLL_UP);
+    // TODO(V Caraulan): Scroll depending on its value, not direction
+
+    // TODO(V Caraulan): This offset happens when zooming in so it's in center.
+    //Could change it so it zooms in depending on mouse position
+    //fol.k.xoffset += (xmaxBefore - fol.k.xmax) * 1.5;
+    //fol.k.yoffset += (ymaxBefore - fol.k.ymax) * 1.5;
+
+    // TODO(V Caraulan): Any way to this in a more elegant way ?
+    if (fol.accel.x < 0.00001f && fol.accel.x >= 0.0f)
+        fol.accel.x = 0;
+    else if (fol.accel.x > -0.00001f && fol.accel.x <= 0.0f)
+        fol.accel.x = 0;
+    if (fol.accel.y < 0.00001f && fol.accel.y > 0.0f)
+        fol.accel.y = 0;
+    else if (fol.accel.y > -0.00001f && fol.accel.y <= 0.0f)
+        fol.accel.y = 0;
+    //
+    if (Input.KeyPress & (1UL << KEY_1))
+		fol.k.iter = 1000;
+	if (Input.KeyPress & (1UL << KEY_2))
+		fol.k.iter = 10000;
+	if (Input.KeyPress & 1UL << KEY_PLUS)
+		fol.k.iter += 100;
+	if (Input.KeyPress & 1UL << KEY_MINUS)
+        fol.k.iter -= 100;
+	if (Input.KeyPress & 1UL << KEY_R)
+		fol.k.red += fol.k.red / 1000;
+	if (Input.KeyPress & 1UL << KEY_T)
+		fol.k.red -= fol.k.red / 1000;
+	if (Input.KeyPress & 1UL << KEY_G)
+		fol.k.green += fol.k.green / 1000;
+	if (Input.KeyPress & 1UL << KEY_H)
+		fol.k.green -= fol.k.green / 1000;
+	if (Input.KeyPress & 1UL << KEY_B)
+		fol.k.blue += fol.k.blue / 1000;
+	if (Input.KeyPress & 1UL << KEY_N)
+		fol.k.blue -= fol.k.blue / 1000;
+
+    fol.k.red = ClampF(fol.k.red, 0.001f, 0.5f);
+    fol.k.green = ClampF(fol.k.green, 0.001f, 0.5f);
+    fol.k.blue = ClampF(fol.k.blue, 0.001f, 0.5f);
+
+    run_cl(Buffer, &fol);
+
 }
 
 

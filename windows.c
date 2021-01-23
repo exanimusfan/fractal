@@ -1,34 +1,23 @@
+/* *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*- */
 /*   windows.c                                                                */
-/*   By: Victor Caraulan <victor.caraulan@yahoo.com>                          */
+/*   By: V Caraulan <caraulan.victor@yahoo.com>                               */
 /*   Created: 2021/01/03 11:09:27 by V Caraulan                               */
+/* -*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* */
 
 #include <math.h>
 #include <stdint.h>
 
-#define PI32 3.14159265359
 #define internal static 
 #define global_variable static
 #define local_persist static
 
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
-
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-
-typedef float  f32;
-typedef double f64;
+#include "fractal.h"
+#include "fractal.c"
 
 // NOTE(V Caraulan): Windows header files
-
 #include <windows.h>
 #include <wingdi.h>
 #include <xinput.h>
-#include <dsound.h>
 #include <io.h>
 #include <fileapi.h>
 
@@ -46,24 +35,24 @@ void WINAPIV DebugOut(const TCHAR *fmt, ...) {
 #if Profiling
 # include <stdio.h>
 #endif
+
+
 #include "windows_layer.h"
-#include "fractal.h"
-#include "fractal.c"
 
-// NOTE(V Caraulan): This is my debugging printf from google
+global_variable  int GlobalRunning; // TODO(V Caraulan): Have it inside a struct, or the application shouldn't even be aware about this variable ??? I like the latter better
 
-global_variable  int GlobalRunning;
 global_variable  win32_offscreen_buffer GlobalBuffer;
-global_variable  uint64  KeyPress;
 
 // TODO(V Caraulan): Remove the global variables !!!
+// TODO(V Caraulan): Maybe controller as input ???
+// TODO(V Caraulan): What should happen in case of resizing ? Right now we crash hard or soft
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
 
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
-    return (ERROR_DEVICE_NOT_CONNECTED);
+    return (ERROR_DEVICE_NOT_CONNECTED); // The original function returns 0 on success
 }
 global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
 
@@ -74,94 +63,6 @@ X_INPUT_SET_STATE(XInputSetStateStub)
     return (ERROR_DEVICE_NOT_CONNECTED);
 }
 global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
-
-#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
-typedef DIRECT_SOUND_CREATE(direct_sound_create);
-
-
-internal void
-Win32InitDSound(HWND Window, win32_sound_output *SoundOutput)
-{
-    HMODULE DirectSoundLibrary = LoadLibraryA("dsound.dll");
-
-    if (DirectSoundLibrary)
-    {
-        direct_sound_create *DirectSoundCreate =
-            (direct_sound_create *)GetProcAddress(DirectSoundLibrary, "DirectSoundCreate");
-
-        LPDIRECTSOUND DirectSound;
-
-        if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
-        {
-            WAVEFORMATEX WaveFormat = {0};
-            WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
-            WaveFormat.nChannels = 2;
-            WaveFormat.nSamplesPerSec = SoundOutput->SamplesPerSecond;
-            WaveFormat.wBitsPerSample = 16;
-            WaveFormat.nBlockAlign = (WaveFormat.nChannels * WaveFormat.wBitsPerSample) / 8;
-            WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
-            WaveFormat.cbSize = 0;
-
-            if (SUCCEEDED(IDirectSound_SetCooperativeLevel(DirectSound, Window, DSSCL_PRIORITY)))
-            {
-                DSBUFFERDESC BufferDescription = {0};
-
-                BufferDescription.dwSize = sizeof(BufferDescription);
-                BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
-
-                LPDIRECTSOUNDBUFFER PrimaryBuffer;
-                if (SUCCEEDED(IDirectSound_CreateSoundBuffer(DirectSound, &BufferDescription, &PrimaryBuffer, 0)))
-                {
-                    if (SUCCEEDED(IDirectSoundBuffer_SetFormat(PrimaryBuffer, &WaveFormat)))
-                    {
-                        //OutputDebugString("Success\n");
-                    }
-                }
-
-            }
-            DSBUFFERDESC BufferDescription = {0};
-            BufferDescription.dwSize = sizeof(BufferDescription);
-            BufferDescription.dwFlags = 0;
-            BufferDescription.dwBufferBytes = SoundOutput->BufferSize;
-            BufferDescription.lpwfxFormat = &WaveFormat;
-
-            HRESULT Error = IDirectSound_CreateSoundBuffer(DirectSound, &BufferDescription, &SoundOutput->Buffer, 0);
-            if (SUCCEEDED(Error))
-            {
-                //OutputDebugString("This is a test\n");
-            }
-        }
-    }
-}
-
-internal char *
-Win32OpenAndReadFile(const char *filename, char *source)
-{
-    OVERLAPPED Overlaped = {0};
-    OFSTRUCT   FileStruct;
-    HANDLE     FileHandle;
-    DWORD      BytesRead;
-
-    FileHandle = CreateFileA("opencl/mandelbrot.cl", // File path
-                             GENERIC_READ,           // dwDesiredAccess
-                             0,                      // dwShareMode
-                             NULL,                   // lpSecurityAttributes
-                             OPEN_EXISTING,          // dwCreationDisposition
-                             FILE_ATTRIBUTE_NORMAL,  // dwFlagsAndAttributes
-                             NULL);                  // hTemplateFile (optional, and ignored in case of opening existing)
-    LARGE_INTEGER FileSize;
-    GetFileSizeEx(FileHandle, &FileSize);
-    uint32 FileSize32 = (int32)FileSize.QuadPart;
-    ReadFile(FileHandle, source, FileSize32, &BytesRead, 0);
-    source[BytesRead] = '\0';
-    CloseHandle(FileHandle);
-    return (source);
-}
-
-internal char *load_program_source(const char *filename, char *source)
-{
-    return (Win32OpenAndReadFile(filename, source));
-}
 
 internal void
 Win32LoadXInput(void)
@@ -179,9 +80,6 @@ Win32LoadXInput(void)
     }
 }
 
-#define XInputGetState XInputGetState_
-#define XInputSetState XInputSetState_
-
 internal win32_window_dimension
 GetWindowDimension(HWND Window)
 {
@@ -192,20 +90,6 @@ GetWindowDimension(HWND Window)
     Result.Width = ClientRect.right - ClientRect.left;
     Result.Height = ClientRect.bottom - ClientRect.top;
     return (Result);
-}
-
-internal win32_sound_output
-GetDefaultSoundOutput(void)
-{
-    win32_sound_output SoundOutput = {0};
-
-    SoundOutput.SamplesPerSecond = 48000;
-    SoundOutput.ToneHz = 256;
-    SoundOutput.ToneVolume = 3000;
-    SoundOutput.BytesPerSample = (sizeof(int16) * 2);
-    SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
-    SoundOutput.BufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
-    return (SoundOutput);
 }
 
 internal void
@@ -233,9 +117,10 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, win32_window_dimension Dim
 }
 
 internal void
-Win32DisplayBufferInWindow(HDC DeviceContext, win32_window_dimension Dimension, win32_offscreen_buffer Buffer, int X, int Y)
+Win32DisplayBufferInWindow(HDC DeviceContext, win32_window_dimension Dimension,
+                           win32_offscreen_buffer Buffer)
 {
-    if (KeyPress & (1UL << RESOLUTION_LOW))
+    if (Buffer.LowResolution)
     {
         Buffer.Info.bmiHeader.biWidth = Buffer.Width / 10;
         Buffer.Info.bmiHeader.biHeight = -(Buffer.Height / 10);
@@ -257,35 +142,6 @@ Win32DisplayBufferInWindow(HDC DeviceContext, win32_window_dimension Dimension, 
     }
 }
 
-internal void
-Win32FillSoundBuffer(win32_sound_output *SoundOutput, int ByteToLock, int BytesToWrite, uint32 *RunningSampleIndex)
-{
-    void *Region1;
-    DWORD Region1Size;
-    void *Region2;
-    DWORD Region2Size;
-
-    if (SUCCEEDED(IDirectSoundBuffer_Lock(SoundOutput->Buffer, ByteToLock,
-                                          BytesToWrite,
-                                          &Region1, &Region1Size,
-                                          &Region2, &Region2Size,
-                                          0)))
-    {
-        //assert that region1 is valid
-        game_sound_output_buffer ApplicationSound = {0};
-        ApplicationSound.SamplesPerSecond = SoundOutput->SamplesPerSecond;
-        ApplicationSound.SampleCount = Region1Size / SoundOutput->BytesPerSample;
-        ApplicationSound.Samples = (int16 *)Region1;
-        GameOutputSound(&ApplicationSound, SoundOutput->ToneHz);
-        ApplicationSound.SampleCount = Region2Size / SoundOutput->BytesPerSample;
-        ApplicationSound.Samples = (int16 *)Region2;
-        GameOutputSound(&ApplicationSound, SoundOutput->ToneHz);
-        IDirectSoundBuffer_Unlock(SoundOutput->Buffer,
-                                  &Region1, Region1Size,
-                                  &Region2, Region2Size);
-    }
-}
-
 LRESULT CALLBACK
 MainWindowCallback(HWND Window, UINT Message,
                    WPARAM WParam, LPARAM LParam)
@@ -295,6 +151,7 @@ MainWindowCallback(HWND Window, UINT Message,
     {
         case WM_SIZE:
         {
+            // TODO(V Caraulan): Resize only if buffer is too small ???
             win32_window_dimension Dimension = GetWindowDimension(Window);
             Win32ResizeDIBSection(&GlobalBuffer, Dimension);
         } break;
@@ -311,115 +168,17 @@ MainWindowCallback(HWND Window, UINT Message,
         {
             GlobalRunning = 0;
         } break;
-        case WM_MOUSEWHEEL:
-        {
-            KeyPress |= 1UL << MOUSE_SCROLL_DOWN;
-            int ScrollDirection = ((short) HIWORD(WParam)< 0) ? -1 : +1;
-            if (ScrollDirection == 1)
-                KeyPress |= 1UL << MOUSE_SCROLL_UP;
-        } break;
-#if 0
-        case WM_MOUSEMOVE:
-        {
-            int MKCode = WParam;
 
-            if (MKCode == )
-        } break:
-#endif
         case WM_KEYUP:
         case WM_KEYDOWN:
         {
-            int VKCode = WParam;
-
-            int WasDown = ((LParam & (1 << 30)) != 0); //NOTE: variable names explain the bit shift
-            int IsDown = ((LParam & (1 << 31)) == 0);
-            if (IsDown != WasDown)
-            {
-                if (VKCode == VK_ESCAPE){ //Quit
-                    if (IsDown)
-                        GlobalRunning = 0;
-                }
-                if (VKCode == 'W' || VKCode == VK_UP){
-                    if (IsDown)
-                        KeyPress |= (1UL << KEY_W);
-                    else
-                        KeyPress &= ~(1UL << KEY_W);
-                }
-                if (VKCode == 'S' || VKCode == VK_DOWN){
-                    if (IsDown)
-                        KeyPress |= (1UL << KEY_S);
-                    else
-                        KeyPress &= ~(1UL << KEY_S);
-                }
-                if (VKCode == 'A' || VKCode == VK_LEFT){
-                    if (IsDown)
-                        KeyPress |= (1UL << KEY_A);
-                    else
-                        KeyPress &= ~(1UL << KEY_A);
-                }
-                if (VKCode == 'D' || VKCode == VK_RIGHT){
-                    if (IsDown)
-                        KeyPress |= (1UL << KEY_D);
-                    else
-                        KeyPress &= ~(1UL << KEY_D);
-                }
-                if (VKCode == '1'){
-                    if (IsDown)
-                        KeyPress |= (1UL << KEY_1);
-                    else
-                        KeyPress &= ~(1UL << KEY_1);
-                }
-                if (VKCode == '2'){
-                    if (IsDown)
-                        KeyPress |= (1UL << KEY_2);
-                    else
-                        KeyPress &= ~(1UL << KEY_2);
-                }
-                if (VKCode == VK_OEM_MINUS){
-                    if (IsDown)
-                        KeyPress |= (1UL << KEY_MINUS);
-                    else
-                        KeyPress &= ~(1UL << KEY_MINUS);
-                }
-                if (VKCode == VK_OEM_PLUS){
-                    if (IsDown)
-                        KeyPress |= (1UL << KEY_PLUS);
-                    else
-                        KeyPress &= ~(1UL << KEY_PLUS);
-                }
-            }
-        }break;
-
+            OutputDebugStringA("ERROR\n");
+            *(char *)(0) = 1; //NOTE: CRASH HARD TODO
+        } break;
         case WM_PAINT:
         {
-            for (DWORD ControllerIndex = 0; ControllerIndex < XUSER_MAX_COUNT; ++ControllerIndex)
-            {
-                XINPUT_STATE ControllerState = {0};
-                if (XInputGetState_(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
-                {
-                    XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
-                    int Up = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-                    int Down = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-                    int Left = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-                    int Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-                    int AButton = (Pad->wButtons & XINPUT_GAMEPAD_A);
-                    int BButton = (Pad->wButtons & XINPUT_GAMEPAD_B);
-                    int XButton = (Pad->wButtons & XINPUT_GAMEPAD_X);
-                    int YButton = (Pad->wButtons & XINPUT_GAMEPAD_Y);
-
-                    int StickX = Pad->sThumbLX;
-                    int StickY = Pad->sThumbLY;
-
-                    if (BButton)
-                    {
-                        GlobalRunning = 0;
-                    }
-                }
-            }
-            win32_window_dimension Dimension = GetWindowDimension(Window);
             PAINTSTRUCT Paint;
-            HDC DeviceContext = BeginPaint(Window, &Paint);
-            //Win32DisplayBufferInWindow(DeviceContext, Dimension, GlobalBuffer, 0, 0);
+            BeginPaint(Window, &Paint);
             EndPaint(Window, &Paint);
         } break;
         default:
@@ -436,8 +195,12 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
 {
     WNDCLASS WindowClass      = {0};
     HWND Window               = NULL;
+    win32_window_dimension   Resolution;
 
-    Win32ResizeDIBSection(&GlobalBuffer, (win32_window_dimension){1920, 1080});
+    Resolution.Width = 1920;
+    Resolution.Height = 1080;
+
+    Win32ResizeDIBSection(&GlobalBuffer, Resolution);
     WindowClass.style         = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc   = MainWindowCallback;
     WindowClass.hInstance     = Instance;
@@ -457,8 +220,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                                  WindowClass.lpszClassName, // Window class
                                  "Fractal",         // Window text
                                  WS_OVERLAPPEDWINDOW, // Window style
-                                 // Size and position
-                                 CW_USEDEFAULT, CW_USEDEFAULT, 1920, 1080,
+                                 // Position and Size
+                                 CW_USEDEFAULT, CW_USEDEFAULT,
+                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                  NULL,       // Parent window    
                                  NULL,       // Menu
                                  WindowClass.hInstance,  // Instance handle
@@ -468,15 +232,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
     if (Window)
     {
         ShowWindow(Window, ShowCode);
-        // Run the loop.
-        int XOffset = 0;
-        int YOffset = 0;
-
-        uint32 RunningSampleIndex = 0;
 
         HDC DeviceContext = GetDC(Window);
         GlobalRunning = 1;
-
+        win32_input_handle Input = {0};
 #if Profiling
         LARGE_INTEGER LastCounter;
         QueryPerformanceCounter(&LastCounter);
@@ -484,27 +243,149 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
         while (GlobalRunning)
         {
             MSG Message;
-            BOOL MessageResult = PeekMessageA(&Message, NULL, 0, 0, PM_REMOVE);
-
-            if (MessageResult > 0)
+            while (PeekMessageA(&Message, NULL, 0, 0, PM_REMOVE))
             {
-                if (Message.message == WM_QUIT)
-                    GlobalRunning = 0;
-                TranslateMessage(&Message);
-                DispatchMessage(&Message);
+                switch(Message.message)
+                {
+                    case WM_QUIT:
+                    {
+                        GlobalRunning = 0;
+                    } break;
+                    case WM_MOUSEWHEEL:
+                    {
+                        // TODO(V Caraulan): What if I had a increase, decrease value, depending
+                        // on mouse wheel. While value != 0 low resolution else high.
+                        //int ScrollDirection = ((short) HIWORD(Message.wParam)< 0) ? -1 : +1;
+
+
+                    } break;
+#if 0
+                    case WM_MOUSEMOVE:
+                    {
+                        int MKCode = WParam;
+
+                        if (MKCode == )
+                    } break:
+#endif
+                    case WM_KEYUP:
+                    case WM_KEYDOWN:
+                    {
+                        GlobalBuffer.LowResolution = 1;
+                        int VKCode = (int)Message.wParam;
+
+                        int WasDown = ((Message.lParam & (1 << 30)) != 0);
+                        //NOTE: variable names explain the bit shift
+                        int IsDown = ((Message.lParam & (1 << 31)) == 0);
+
+                        if (IsDown != WasDown)
+                        {
+                            if (VKCode == VK_ESCAPE){ //Quit
+                                if (IsDown)
+                                    GlobalRunning = 0;
+                            }
+                            if (VKCode == 'W' || VKCode == VK_UP){
+                                if (IsDown)
+                                    Input.KeyPress |= (1UL << KEY_W);
+                                else
+                                    Input.KeyPress &= ~(1UL << KEY_W);
+                            }
+                            if (VKCode == 'S' || VKCode == VK_DOWN){
+                                if (IsDown)
+                                    Input.KeyPress |= (1UL << KEY_S);
+                                else
+                                    Input.KeyPress &= ~(1UL << KEY_S);
+                            }
+                            if (VKCode == 'A' || VKCode == VK_LEFT){
+                                if (IsDown)
+                                    Input.KeyPress |= (1UL << KEY_A);
+                                else
+                                    Input.KeyPress &= ~(1UL << KEY_A);
+                            }
+                            if (VKCode == 'D' || VKCode == VK_RIGHT){
+                                if (IsDown)
+                                    Input.KeyPress |= (1UL << KEY_D);
+                                else
+                                    Input.KeyPress &= ~(1UL << KEY_D);
+                            }
+                            if (VKCode == '1'){
+                                if (IsDown)
+                                    Input.KeyPress |= (1UL << KEY_1);
+                                else
+                                    Input.KeyPress &= ~(1UL << KEY_1);
+                            }
+                            if (VKCode == '2'){
+                                if (IsDown)
+                                    Input.KeyPress |= (1UL << KEY_2);
+                                else
+                                    Input.KeyPress &= ~(1UL << KEY_2);
+                            }
+                            if (VKCode == VK_OEM_MINUS){
+                                if (IsDown)
+                                    Input.KeyPress |= (1UL << KEY_MINUS);
+                                else
+                                    Input.KeyPress &= ~(1UL << KEY_MINUS);
+                            }
+                            if (VKCode == VK_OEM_PLUS){
+                                if (IsDown)
+                                    Input.KeyPress |= (1UL << KEY_PLUS);
+                                else
+                                    Input.KeyPress &= ~(1UL << KEY_PLUS);
+                            }
+                        }
+                    }break;
+                    default:
+                    {
+                        TranslateMessage(&Message);
+                        DispatchMessage(&Message);
+                    }
+                }
+            }
+            for (DWORD ControllerIndex = 0;
+                 ControllerIndex < XUSER_MAX_COUNT;
+                 ++ControllerIndex)
+            {
+                XINPUT_STATE ControllerState = {0};
+                if (XInputGetState_(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+                {
+                    XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
+#if 0
+                    int Up = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+                    int Down = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+                    int Left = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+                    int Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+                    int BButton = (Pad->wButtons & XINPUT_GAMEPAD_B);
+                    int StickX = Pad->sThumbLX;
+                    int StickY = Pad->sThumbLY;
+#endif
+                    int BButton = (Pad->wButtons & XINPUT_GAMEPAD_B);
+                    if (BButton)
+                    {
+                        GlobalRunning = 0;
+                    }
+                }
             }
             application_offscreen_buffer Buffer = {0};
 
             Buffer.Memory = GlobalBuffer.Memory;
-            Buffer.Width = GlobalBuffer.Width;
-            Buffer.Height = GlobalBuffer.Height;
+            if (GlobalBuffer.LowResolution)
+            {
+                Buffer.Width = GlobalBuffer.Width / 10;
+                Buffer.Height = GlobalBuffer.Height / 10;
+            }
+            else
+            {
+                Buffer.Width = GlobalBuffer.Width;
+                Buffer.Height = GlobalBuffer.Height;
+            }
             Buffer.Pitch = GlobalBuffer.Pitch;
             Buffer.BytesPerPixel = GlobalBuffer.BytesPerPixel;
 
-            ApplicationUpdateAndRender(Buffer, &KeyPress);
+            application_input_handle localInput;
+            localInput.KeyPress = Input.KeyPress;
+            localInput.MouseWheel = Input.MouseWheel;
+            ApplicationUpdateAndRender(Buffer, localInput);
             win32_window_dimension Dimension = GetWindowDimension(Window);
-            Win32DisplayBufferInWindow(DeviceContext, Dimension, GlobalBuffer, 0, 0);
-
+            Win32DisplayBufferInWindow(DeviceContext, Dimension, GlobalBuffer);
 #if Profiling
             int64 EndCycleCount = __rdtsc();
 
