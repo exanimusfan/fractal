@@ -10,7 +10,6 @@ typedef struct
     int  Height;
     int  Pitch;
     int  BytesPerPixel;
-    int  LowResolution;
 }              win32_offscreen_buffer;
 
 typedef struct
@@ -21,9 +20,18 @@ typedef struct
 
 typedef struct
 {
-    uint64 KeyPress;
-    int32 MouseWheel;
+    u64 KeyPress;
+    u64 LeftStick;
+    u64 RightStick;
+    s32 MouseWheel;
 }              win32_input_handle;
+
+typedef struct
+{
+    void *Memory;
+    size_t UsedSize;
+    size_t TotalSize;
+}              win32_persistent_storage;
 
 #define WINDOWS_LAYER_H
 #endif

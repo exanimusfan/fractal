@@ -6,21 +6,7 @@
 
 #include "constant_strings.c"
 
-
 #if 0
-internal int
-finish_cl(cl_context context,
-          cl_command_queue cmd_queue, cl_mem image)
-{
-	if (image != NULL)
-		clReleaseMemObject(image);
-	if (cmd_queue != NULL)
-		clReleaseCommandQueue(cmd_queue);
-	if (context != NULL)
-		clReleaseContext(context);
-	return (0);
-}
-#endif
 
 internal void
 NumberDebugOutput(int Number)
@@ -40,16 +26,42 @@ NumberDebugOutput(int Number)
         StringNumber[Index++] = '0' + (Number % 10);
         Number /= 10;
     }
+    OutputDebugStringA(&StringNumber[0]);
+    OutputDebugStringA(" Test\n");
 }
+
+#endif
+internal int
+finish_cl(cl_context context,
+          cl_command_queue cmd_queue, cl_mem image)
+{
+	if (image != NULL)
+		clReleaseMemObject(image);
+	if (cmd_queue != NULL)
+		clReleaseCommandQueue(cmd_queue);
+	if (context != NULL)
+		clReleaseContext(context);
+	return (0);
+}
+
+// TODO(V Caraulan): Remove this
+#include <windows.h>
+#include <stdio.h>
+//
 
 internal void
 check_succeeded(char *message, cl_int err)
 {
     if (err != CL_SUCCESS)
-	{
-        *(char *)(0) = 1; //NOTE: CRASH HARD TODO
+    {
+        char TempBuffer[256];
+        sprintf_s(TempBuffer, 255, "%s %d\n", message, err);
+        OutputDebugStringA(TempBuffer);
+        MessageBox(NULL, TempBuffer, TempBuffer, MB_ICONEXCLAMATION | MB_YESNO);
+        //*(char *)(0) = 1; //NOTE: CRASH HARD TODO
     }
 }
+
 
 internal void
 print_debug_info(cl_context context)
@@ -80,13 +92,14 @@ print_debug_info(cl_context context)
 internal void
 get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
 {
-    t_ocl          *o;
+    t_OpenCL       *o;
     cl_int         err;
     cl_device_id   devices[16] = {0};
     cl_platform_id platform = {0};
 
     o            = &fol->ocl;
-	o->buff_size = Buffer.BytesPerPixel * Buffer.Width * Buffer.Height;
+	//o->buff_size = Buffer.BytesPerPixel * Buffer.Width * Buffer.Height;
+    o->buff_size = Buffer.BytesPerPixel * 7680 * 4320;
     clGetPlatformIDs(1, &platform, NULL);
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 16, devices, &o->num_devices);
 
@@ -95,6 +108,7 @@ get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
     if (o->num_devices == 0)
 	{
         //OutputDebugStringA("No compute devices found\n");
+        MessageBox(NULL, "No compute devices found\n", NULL, MB_ICONEXCLAMATION | MB_YESNO);
         *(char *)(0) = 1; //NOTE: CRASH HARD TODO
     }
 
@@ -153,153 +167,164 @@ load_krnl(cl_device_id device, cl_context context)
     return (kernel[0]);
 }
 
-internal int 
-run_cl(application_offscreen_buffer Buffer, t_fol *fol)
+internal inline f64
+ClampF(double value, double min, double max)
 {
-	unsigned int	j;
+    f64 Result;
 
-	j = 0;
-    if (!(fol->flag & (1UL << FLAG_CL_INITIALIZED)))
-    {
-        fol->x = 0;
-        fol->y = 0;
-        get_context(Buffer, fol, 0);
-        fol->ocl.image = clCreateBuffer(fol->ocl.context, CL_MEM_WRITE_ONLY,
-                                        fol->ocl.buff_size, NULL, &fol->ocl.err);
-        check_succeeded("Creating buffer", fol->ocl.err);
-        fol->ocl.krnl = load_krnl(fol->ocl.devices[0], fol->ocl.context);
-        fol->flag |= 1UL << FLAG_CL_INITIALIZED;
-    }
-
-    clFinish(fol->ocl.cmd_queue[0]);
-    fol->ocl.err = clSetKernelArg(fol->ocl.krnl, 0, sizeof(cl_mem), &fol->ocl.image);
-    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 1, sizeof(t_krn), &fol->k);
-    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 2, sizeof(int), &fol->x);
-    fol->ocl.err |= clSetKernelArg(fol->ocl.krnl, 3, sizeof(int), &fol->y);
-    check_succeeded("Setting kernel arg", fol->ocl.err);
-
-    if (clBuildProgram)
-    {
-        t_ocl  *o  = &fol->ocl;;
-        size_t d_size[2];
-
-        d_size[0] = Buffer.Width;
-        d_size[1] = Buffer.Height;
-        o->err = clEnqueueNDRangeKernel(o->cmd_queue[0], o->krnl, 2, 0,
-                                        d_size, NULL, 0, NULL, NULL);
-
-        check_succeeded("Running kernel", o->err);
-        o->err = clEnqueueReadBuffer(o->cmd_queue[0], o->image, CL_FALSE,
-                                     0, o->buff_size, fol->img, 0, NULL, NULL);
-        check_succeeded("Reading buffer", fol->ocl.err);
-    }
-
-    return (0);
+    Result = value;
+    if (value > max)
+        Result = max;
+    else if (value < min)
+        Result = min;
+    return (Result);
 }
 
-internal double ClampF(double value, double min, double max)
+internal inline t_fol
+InitFractolStructure(void)
 {
-    if (value > max)
-        value = max;
-    else if (value < min)
-        value = min;
-    return (value);
+    t_fol Result = {0};
+
+    Result.Kernel.red = 0.002f;
+    Result.Kernel.green = 0.003f;
+    Result.Kernel.blue = 0.005f;
+    Result.Kernel.xoffset = -9.04f;
+    Result.Kernel.yoffset = -4.84f;
+    Result.Kernel.iter = 1000;
+    Result.accel.x = 0;
+    Result.accel.y = 0;
+    return (Result);
 }
 
 internal void
 ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
-						   application_input_handle Input)
+						   application_input_handle Input, int Render)
 {
-    local_persist t_fol fol;
+    local_persist t_fol Fractol;
 
-    if (Buffer.Memory)
-        fol.img = Buffer.Memory;
-    if (fol.flag == 0)
+    if (Fractol.flag == 0)
     {
-        float xrange;
-        float yrange;
+        Fractol = InitFractolStructure();
+        // TODO(V Caraulan): These values below should be recalculated everytime buffer changes ?????
+        float xrange = 6;
+        float yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
 
-        fol.flag ^= FLAG_INITIALIZED;
-        xrange = 6;
-        yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
-        fol.k.red = 0.002f;
-        fol.k.green = 0.003f;
-        fol.k.blue = 0.005f;
-        fol.k.xoffset = -9.04f;
-        fol.k.yoffset = -4.84f;
-        fol.k.xmin = -xrange;
-        fol.k.xmax = xrange;
-        fol.k.ymin = -yrange;
-        fol.k.ymax = yrange;
-
-        fol.k.iter = 1000;
-        fol.x = Buffer.Width / 2;
-        fol.y = Buffer.Height / 2;
-        fol.accel.x = 0;
-        fol.accel.y = 0;
+        Fractol.flag ^= FLAG_INITIALIZED;
+        Fractol.img = Buffer.Memory;
+        Fractol.x = Buffer.Width / 2;
+        Fractol.y = Buffer.Height / 2;
+        Fractol.Kernel.xmin = -xrange;
+        Fractol.Kernel.xmax = xrange;
+        Fractol.Kernel.ymin = -yrange;
+        Fractol.Kernel.ymax = yrange;
     }
-    //     if (not_rendered)
+
     int	neg = 0;
 
     if (Input.KeyPress & 1UL << KEY_W || Input.KeyPress & 1UL << KEY_S)
-	{
-		neg = (Input.KeyPress & 1UL << 16) ? -1 : 1;
-		fol.accel.y += neg;
-        fol.k.yoffset += ((fol.k.ymax) * neg * 0.005f);
+    {
+        neg = (Input.KeyPress & 1UL << 16) ? -1 : 1;
+        Fractol.accel.y += neg;
+        Fractol.Kernel.yoffset += ((Fractol.Kernel.ymax) * neg * 0.005f);
     }
-	if (Input.KeyPress & 1UL << KEY_A || Input.KeyPress & 1UL << KEY_D)
-	{
-		neg = (Input.KeyPress & 1UL << 14) ? -1 : 1;
-		fol.accel.x += neg;
-        fol.k.xoffset += ((fol.k.xmax) * neg * 0.005f);
+    if (Input.KeyPress & 1UL << KEY_A || Input.KeyPress & 1UL << KEY_D)
+    {
+        neg = (Input.KeyPress & 1UL << 14) ? -1 : 1;
+        Fractol.accel.x += neg;
+        Fractol.Kernel.xoffset += ((Fractol.Kernel.xmax) * neg * 0.005f);
     }
-	fol.accel.x -= fol.accel.x / 2;
-    fol.accel.y -= fol.accel.y / 2;
+    Fractol.accel.x -= Fractol.accel.x / 2;
+    Fractol.accel.y -= Fractol.accel.y / 2;
 
     // TODO(V Caraulan): Scroll depending on its value, not direction
 
+    if (Input.MouseWheel != 0)
+    {
+        double xmaxBefore = Fractol.Kernel.xmax;
+        double ymaxBefore = Fractol.Kernel.ymax;
+
+        Fractol.Kernel.xmin += Fractol.Kernel.xmin * (Input.MouseWheel * 0.001f);
+        Fractol.Kernel.xmax += Fractol.Kernel.xmax * (Input.MouseWheel * 0.001f);
+        Fractol.Kernel.ymin += Fractol.Kernel.ymin * (Input.MouseWheel * 0.001f);
+        Fractol.Kernel.ymax += Fractol.Kernel.ymax * (Input.MouseWheel * 0.001f);
+        Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5;
+        Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5;
+        Input.MouseWheel = 0;
+    }
+
     // TODO(V Caraulan): This offset happens when zooming in so it's in center.
     //Could change it so it zooms in depending on mouse position
-    //fol.k.xoffset += (xmaxBefore - fol.k.xmax) * 1.5;
-    //fol.k.yoffset += (ymaxBefore - fol.k.ymax) * 1.5;
+    //Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5;
+    //Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5;
+
 
     // TODO(V Caraulan): Any way to this in a more elegant way ?
-    if (fol.accel.x < 0.00001f && fol.accel.x >= 0.0f)
-        fol.accel.x = 0;
-    else if (fol.accel.x > -0.00001f && fol.accel.x <= 0.0f)
-        fol.accel.x = 0;
-    if (fol.accel.y < 0.00001f && fol.accel.y > 0.0f)
-        fol.accel.y = 0;
-    else if (fol.accel.y > -0.00001f && fol.accel.y <= 0.0f)
-        fol.accel.y = 0;
+    if (Fractol.accel.x < 0.00001f && Fractol.accel.x >= 0.0f)
+        Fractol.accel.x = 0;
+    else if (Fractol.accel.x > -0.00001f && Fractol.accel.x <= 0.0f)
+        Fractol.accel.x = 0;
+    if (Fractol.accel.y < 0.00001f && Fractol.accel.y > 0.0f)
+        Fractol.accel.y = 0;
+    else if (Fractol.accel.y > -0.00001f && Fractol.accel.y <= 0.0f)
+        Fractol.accel.y = 0;
     //
+
     if (Input.KeyPress & (1UL << KEY_1))
-		fol.k.iter = 1000;
-	if (Input.KeyPress & (1UL << KEY_2))
-		fol.k.iter = 10000;
-	if (Input.KeyPress & 1UL << KEY_PLUS)
-		fol.k.iter += 100;
-	if (Input.KeyPress & 1UL << KEY_MINUS)
-        fol.k.iter -= 100;
-	if (Input.KeyPress & 1UL << KEY_R)
-		fol.k.red += fol.k.red / 1000;
-	if (Input.KeyPress & 1UL << KEY_T)
-		fol.k.red -= fol.k.red / 1000;
-	if (Input.KeyPress & 1UL << KEY_G)
-		fol.k.green += fol.k.green / 1000;
-	if (Input.KeyPress & 1UL << KEY_H)
-		fol.k.green -= fol.k.green / 1000;
-	if (Input.KeyPress & 1UL << KEY_B)
-		fol.k.blue += fol.k.blue / 1000;
-	if (Input.KeyPress & 1UL << KEY_N)
-		fol.k.blue -= fol.k.blue / 1000;
+        Fractol.Kernel.iter = 1000;
+    if (Input.KeyPress & (1UL << KEY_2))
+        Fractol.Kernel.iter = 10000;
+    if (Input.KeyPress & 1UL << KEY_PLUS)
+        Fractol.Kernel.iter += 100;
+    if (Input.KeyPress & 1UL << KEY_MINUS)
+        Fractol.Kernel.iter -= 100;
+    if (Input.KeyPress & 1UL << KEY_R)
+        Fractol.Kernel.red += Fractol.Kernel.red / 1000;
+    if (Input.KeyPress & 1UL << KEY_T)
+        Fractol.Kernel.red -= Fractol.Kernel.red / 1000;
+    if (Input.KeyPress & 1UL << KEY_G)
+        Fractol.Kernel.green += Fractol.Kernel.green / 1000;
+    if (Input.KeyPress & 1UL << KEY_H)
+        Fractol.Kernel.green -= Fractol.Kernel.green / 1000;
+    if (Input.KeyPress & 1UL << KEY_B)
+        Fractol.Kernel.blue += Fractol.Kernel.blue / 1000;
+    if (Input.KeyPress & 1UL << KEY_N)
+        Fractol.Kernel.blue -= Fractol.Kernel.blue / 1000;
 
-    fol.k.red = ClampF(fol.k.red, 0.001f, 0.5f);
-    fol.k.green = ClampF(fol.k.green, 0.001f, 0.5f);
-    fol.k.blue = ClampF(fol.k.blue, 0.001f, 0.5f);
+    Fractol.Kernel.red = ClampF(Fractol.Kernel.red, 0.001f, 0.5f);
+    Fractol.Kernel.green = ClampF(Fractol.Kernel.green, 0.001f, 0.5f);
+    Fractol.Kernel.blue = ClampF(Fractol.Kernel.blue, 0.001f, 0.5f);
+    // TODO(V Caraulan): Group this with the other change if buffer changes ?
+    if (!(Fractol.flag & (1UL << FLAG_CL_INITIALIZED)))
+    {
+        get_context(Buffer, &Fractol, 0);
+        Fractol.ocl.image = clCreateBuffer(Fractol.ocl.context, CL_MEM_WRITE_ONLY,
+                                           Fractol.ocl.buff_size, NULL, &Fractol.ocl.err);
+        check_succeeded("Creating buffer", Fractol.ocl.err);
+        Fractol.ocl.Kernel = load_krnl(Fractol.ocl.devices[0], Fractol.ocl.context);
+        Fractol.flag |= 1UL << FLAG_CL_INITIALIZED;
+    }
+    if (Render)
+    {
+        Fractol.ocl.err = clSetKernelArg(Fractol.ocl.Kernel, 0,
+                                         sizeof(cl_mem), &Fractol.ocl.image);
+        check_succeeded("Setting kernel arg", Fractol.ocl.err);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 1, sizeof(t_Kernel), &Fractol.Kernel);
+        check_succeeded("Setting kernel arg", Fractol.ocl.err);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 2, sizeof(int), &Fractol.x);
+        check_succeeded("Setting kernel arg", Fractol.ocl.err);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 3, sizeof(int), &Fractol.y);
+        check_succeeded("Setting kernel arg", Fractol.ocl.err);
 
-    run_cl(Buffer, &fol);
+        size_t d_size[2];
+        d_size[0] = Buffer.Width;
+        d_size[1] = Buffer.Height;
+        Fractol.ocl.err = clEnqueueNDRangeKernel(Fractol.ocl.cmd_queue[0], Fractol.ocl.Kernel, 2, 0,
+                                                 d_size, NULL, 0, NULL, NULL);
 
+        check_succeeded("Running kernel", Fractol.ocl.err);
+        Fractol.ocl.err = clEnqueueReadBuffer(Fractol.ocl.cmd_queue[0], Fractol.ocl.image, CL_FALSE,
+                                              0, Fractol.ocl.buff_size, Fractol.img, 0, NULL, NULL);
+        check_succeeded("Reading buffer", Fractol.ocl.err);
+        clFinish(Fractol.ocl.cmd_queue[0]);
+    }
 }
-
-

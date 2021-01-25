@@ -9,21 +9,18 @@
 # include <math.h>
 # include <CL/cl.h>
 
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
+typedef int8_t  s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
 
 typedef float  f32;
 typedef double f64;
-
-// TODO(V Caraulan): Remove stdio
-#include <stdio.h>
 
 typedef struct	s_dbug
 {
@@ -33,75 +30,67 @@ typedef struct	s_dbug
 	cl_char			device_name[1024];
 }				t_dbug;
 
-typedef struct		s_img
+typedef struct		s_OpenCL
 {
-	int		bpx;
-	int		size_line;
-	int		endian;
-}					t_img;
+	cl_command_queue cmd_queue[16];
+	cl_device_id     devices[16];
+	cl_kernel        Kernel;
+	cl_context       context;
+	cl_int           err;
+	cl_uint          num_devices;
+	cl_mem           image;
+	size_t           buff_size;
+}					t_OpenCL;
 
-typedef struct		s_ocl
+typedef struct		s_Kernel
 {
-	cl_command_queue	cmd_queue[16];
-	cl_device_id		devices[16];
-	cl_kernel			krnl;
-	cl_context			context;
-	cl_int				err;
-	cl_uint				num_devices;
-	cl_mem				image;
-	size_t				buff_size;
-	int					exit;
-}					t_ocl;
-
-typedef struct		s_krn
-{
-	double	xmin;
-	double	xmax;
-	double	ymin;
-	double	ymax;
-	double	xoffset;
-	double	yoffset;
-	int		iter;
-	double	red;
-	double	green;
-	double	blue;
-}					t_krn;
+	f64	xmin;
+	f64	xmax;
+	f64	ymin;
+	f64	ymax;
+	f64	xoffset;
+	f64	yoffset;
+	s32	iter;
+	f64	red;
+	f64	green;
+	f64	blue;
+}					t_Kernel;
 
 typedef struct s_2d
 {
-	double x;
-	double y;
+	f64 x;
+	f64 y;
 }              t_2d;
 
 typedef struct s_fol
 {
-	int            x;
-	int            y;
+	s32            x;
+	s32            y;
 	t_2d           accel;
 	unsigned long  flag;
-	int            *img;
+	s32            *img;
 
     //// // TODO(V Caraulan): separate this struct from this middle ?
 
-    t_ocl          ocl;
-	t_krn          k;
+    t_OpenCL          ocl;
+	t_Kernel       Kernel;
 	cl_device_type dtype;
 }              t_fol;
 
 typedef struct
 {
     void *Memory;
-    int  Width;
-    int  Height;
-    int  Pitch;
-    int  BytesPerPixel;
+    s32  Width;
+    s32  Height;
+    s32  Pitch;
+    s32  BytesPerPixel;
 }              application_offscreen_buffer;
 
 typedef struct
 {
-    int   SamplesPerSecond;
-    int   SampleCount;
-    int16 *Samples;
+    s32   SamplesPerSecond;
+    s32   SampleCount;
+    s16 *Samples;
 }              game_sound_output_buffer;
 
 typedef enum 
@@ -130,17 +119,16 @@ typedef enum
 
 typedef enum
 {
-    NONE,
     FLAG_INITIALIZED,
     FLAG_CL_INITIALIZED,
 }              my_flag;
 
 typedef struct
 {
-    uint64 KeyPress;
-    uint64 LeftStick;
-    uint64 RightStick;
-    int32 MouseWheel;
+    u64 KeyPress;
+    u64 LeftStick;
+    u64 RightStick;
+    s32    MouseWheel;
 }              application_input_handle;
 
 #define FRACTAL_H
