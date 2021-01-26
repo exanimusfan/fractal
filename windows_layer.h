@@ -20,14 +20,6 @@ typedef struct
 
 typedef struct
 {
-    u64 KeyPress;
-    u64 LeftStick;
-    u64 RightStick;
-    s32 MouseWheel;
-}              win32_input_handle;
-
-typedef struct
-{
     void *Memory;
     size_t UsedSize;
     size_t TotalSize;

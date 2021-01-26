@@ -87,7 +87,8 @@ InitializeMemory(size_t Size)
                                  PAGE_READWRITE);
     if (!Result.Memory)
     {
-        MessageBox(NULL, "Can initialize memory\n", NULL, MB_ICONEXCLAMATION | MB_YESNO);
+        MessageBox(NULL, "Can not initialize memory\n", NULL,
+                   MB_ICONEXCLAMATION | MB_YESNO);
         *(char *)(0) = 1; //NOTE: CRASH HARD TODO
     }
     return (Result);
@@ -134,8 +135,8 @@ MainWindowCallback(HWND Window, UINT Message,
         case WM_KEYDOWN:
         {
             OutputDebugStringA("ERROR\n");
-            MessageBox(NULL, "You shouldn't be able to lose key presses\n", NULL, MB_ICONEXCLAMATION | MB_YESNO);
-            *(char *)(0) = 1; //NOTE: CRASH HARD TODO
+            MessageBox(NULL, "You shouldn't be able to lose key presses\n", NULL,
+                       MB_ICONEXCLAMATION | MB_YESNO);
 
         } break;
         default:
@@ -146,9 +147,9 @@ MainWindowCallback(HWND Window, UINT Message,
     return (Result);
 }
 
-global_variable s64 PerfCountFrequency;
+global_variable s64 GlobalPerfCountFrequency;
 
-inline LARGE_INTEGER
+internal inline LARGE_INTEGER
 Win32GetWallClock(void)
 {
     LARGE_INTEGER Result;
@@ -156,11 +157,21 @@ Win32GetWallClock(void)
     return (Result);
 }
 
-inline f32
+internal inline f32
 Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
 {
-    f32 Result = (f32)((End.QuadPart - Start.QuadPart) / (f32) PerfCountFrequency);
+    f32 Result = (f32)((End.QuadPart - Start.QuadPart) / (f32) GlobalPerfCountFrequency);
     return (Result);
+}
+
+internal inline u64
+CheckKeyPress(int IsDown, u64 KeyPress, int Flag)
+{
+    if (IsDown)
+        KeyPress |= (u64)(1UL << Flag);
+    else
+        KeyPress &= ~(1UL << Flag);
+    return (KeyPress);
 }
 
 int
@@ -176,12 +187,16 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
 
     LARGE_INTEGER PerfCountFrequencyResult;
     QueryPerformanceFrequency(&PerfCountFrequencyResult);
-    PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+    GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+
+    u8 DesiredSchedulerMS = 1;
+    BOOL SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
 
     int MonitorRefreshHz = 60;
     int ApplicationHz = MonitorRefreshHz / 2;
-    f32 TargetSecondsPerFrame = 1000.0f / (f32)ApplicationHz;
-
+    //int ApplicationHz = 12;
+    f32 TargetSecondsPerFrame = 1.0f / (f32)ApplicationHz;
+    f32 test = 1.0f; // TODO(V Caraulan): Remove this
     Win32LoadXInput();
     if (RegisterClassA(&WindowClass))
     {
@@ -209,12 +224,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
         win32_offscreen_buffer   Buffer = {0};
         Win32ResizeDIBSection(Storage, &Buffer, Resolution);
         int Running = 1;
-        win32_input_handle Input = {0};
+        application_input_handle Input = {0};
 
         // NOTE(V Caraulan): Begining of profiling
         LARGE_INTEGER LastCounter = Win32GetWallClock();
-        f32 MiliSecondsSinceLastInput = 0.0f;
         u64 LastCycleCount = __rdtsc();
+
+        f32 MiliSecondsSinceLastInput = 0.0f;
+
+        BOOL MouseIsDown = 0;
+        BOOL MouseWasDown = 0;
+        int xoffset = 0;
+        int yoffset = 0;
         while (Running)
         {
             MSG Message;
@@ -225,14 +246,17 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                     case WM_DESTROY:
                     {
                         Running = 0;
+                        PostQuitMessage(0);
                     } break;
 
                     case WM_QUIT:
                     {
                         Running = 0;
+                        PostQuitMessage(0);
                     } break;
                     case WM_SIZE:
                     {
+                        MiliSecondsSinceLastInput = 0.0f;
                         win32_window_dimension Dimension = GetWindowDimension(Window);
                         Win32ResizeDIBSection(Storage, &Buffer, Dimension);
                     } break;
@@ -246,32 +270,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                         MiliSecondsSinceLastInput = 0.0f;
                         Input.MouseWheel -= (short) HIWORD(Message.wParam);
                     } break;
-                    case WM_LBUTTONDOWN: 
-                    {
-                        // TODO(V Caraulan): Implement drag and click
-#if 0
-                        MiliSecondsSinceLastInput = 0.0f;
-                        POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-                        char Temp[256];
-                        sprintf_s(Temp, 256, "1.Variables = %d\n", pt.);
-                        if (DragDetect(m_hwnd, pt))
-                        {
-                            OutputDebugStringA(Temp);
-                            sprintf_s(Temp, 256, "2.Variables = %d\n", pt.);
-                            OutputDebugStringA(Temp);
-                            OutputDebugStringA
-                                // Start dragging.
-                        }
-#endif
-                    } break;
-#if 0
-                    case WM_MOUSEMOVE:
-                    {
-                        int MKCode = WParam;
 
-                        if (MKCode == )
-                    } break:
-#endif
+                    case WM_LBUTTONUP:
+                    {
+                        MouseIsDown = 0;
+                        MouseWasDown = 1;
+                    } break;
+                    case WM_LBUTTONDOWN:
+                    {
+                        MouseWasDown = 0;
+                        MouseIsDown = 1;
+                    } break;
+
                     case WM_KEYUP:
                     case WM_KEYDOWN:
                     {
@@ -284,93 +294,102 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                         MiliSecondsSinceLastInput = 0.0f;
                         if (IsDown != WasDown)
                         {
-                            if (VKCode == VK_ESCAPE){ //Quit
-                                if (IsDown)
-                                    Running = 0;
-                            }
-                            if (VKCode == 'W' || VKCode == VK_UP){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_W);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_W);
-                            }
-                            if (VKCode == 'S' || VKCode == VK_DOWN){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_S);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_S);
-                            }
-                            if (VKCode == 'A' || VKCode == VK_LEFT){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_A);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_A);
-                            }
-                            if (VKCode == 'D' || VKCode == VK_RIGHT){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_D);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_D);
-                            }
-                            if (VKCode == '1'){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_1);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_1);
-                            }
-                            if (VKCode == '2'){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_2);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_2);
-                            }
-                            if (VKCode == VK_OEM_MINUS){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_MINUS);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_MINUS);
-                            }
-                            if (VKCode == VK_OEM_PLUS){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_PLUS);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_PLUS);
-                            }
-                            if (VKCode == 'R'){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_R);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_R);
-                            }
-                            if (VKCode == 'T'){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_T);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_T);
-                            }
-                            if (VKCode == 'B'){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_B);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_B);
-                            }
-                            if (VKCode == 'N'){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_N);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_N);
-                            }
-                            if (VKCode == 'G'){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_G);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_G);
-                            }
-                            if (VKCode == 'H'){
-                                if (IsDown)
-                                    Input.KeyPress |= (1UL << KEY_H);
-                                else
-                                    Input.KeyPress &= ~(1UL << KEY_H);
+                            switch(VKCode)
+                            {
+                                case VK_ESCAPE:
+                                {
+                                    if (IsDown)
+                                        Running = 0;
+                                }break;
+                                case VK_UP:
+                                case 'W':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_W);
+                                }break;
+                                case VK_DOWN:
+                                case 'S':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_S);
+                                }break;
+                                case VK_LEFT:
+                                case 'A':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_A);
+                                }break;
+                                case VK_RIGHT:
+                                case 'D':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_D);
+                                }break;
+                                case '1':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_1);
+                                }break;
+                                case '2':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_2);
+                                }break;
+                                case VK_OEM_MINUS:
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_MINUS);
+                                }break;
+                                case VK_OEM_PLUS:
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_PLUS);
+                                }break;
+                                case 'R':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_R);
+                                }break;
+                                case 'T':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_T);
+                                }break;
+                                case 'B':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_B);
+                                }break;
+                                case 'N':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_N);
+                                }break;
+                                case 'G':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_N);
+                                }break;
+                                case 'H':
+                                {
+                                    Input.KeyPress = CheckKeyPress(IsDown,
+                                                                   Input.KeyPress,
+                                                                   KEY_H);
+                                }break;
+
                             }
                         }
                     }break;
@@ -381,6 +400,39 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                     }
                 }
             }
+            // NOTE(V Caraulan): Click and drag
+            // TODO(V Caraulan): Maybe use flags here ?
+            if (MouseIsDown)
+            {
+                POINT MousePosition;
+
+                GetCursorPos(&MousePosition);
+                if (xoffset != 0 && yoffset != 0)
+                {
+                    xoffset -= -MousePosition.x;
+                    yoffset -= -MousePosition.y;
+                    Input.MouseRelativePos.x = xoffset;
+                    Input.MouseRelativePos.y = yoffset;
+                }
+
+                Input.MousePosition.x = MousePosition.x;
+                Input.MousePosition.y = MousePosition.y;
+                xoffset = -MousePosition.x;
+                yoffset = -MousePosition.y;
+                MiliSecondsSinceLastInput = 0.0f;
+                MouseWasDown = 1;
+                char Temp[256];
+                sprintf_s(Temp, 256, "x %d, %d, %d, %d\n\n", Input.MousePosition.x, Input.MousePosition.y, Input.MouseRelativePos.x,
+                          Input.MouseRelativePos.y);
+                OutputDebugStringA(Temp);
+            }
+            else if (!MouseIsDown && MouseWasDown)
+            {
+                xoffset = 0;
+                yoffset = 0;
+                MouseWasDown = 0;
+            }
+
             for (DWORD ControllerIndex = 0;
                  ControllerIndex < XUSER_MAX_COUNT;
                  ++ControllerIndex)
@@ -402,26 +454,22 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
 #endif
                 }
             }
-            application_input_handle localInput;
-
-            localInput.KeyPress = Input.KeyPress;
-            localInput.MouseWheel = Input.MouseWheel;
 
             win32_window_dimension Dimension = GetWindowDimension(Window);
 
             int Render = 0;
 
-            if (MiliSecondsSinceLastInput >= 100 && !(Buffer.Width == Dimension.Width && Buffer.Height == Dimension.Height))
+            if (MiliSecondsSinceLastInput >= 250.0f && !(Buffer.Width == Dimension.Width && Buffer.Height == Dimension.Height))
             {
                 Render = 1;
                 Win32ResizeDIBSection(Storage, &Buffer, Dimension);
             }
-            else if (MiliSecondsSinceLastInput >= 0 && MiliSecondsSinceLastInput < 100)
+            else if (MiliSecondsSinceLastInput >= 0 && MiliSecondsSinceLastInput < 100.0f)
             {
                 Render = 1;
                 win32_window_dimension RenderResolution = Dimension;
-                RenderResolution.Width  /= 10;
-                RenderResolution.Height /= 10;
+                RenderResolution.Width  = (int)(RenderResolution.Width * test);
+                RenderResolution.Height = (int)(RenderResolution.Height * test);
                 Win32ResizeDIBSection(Storage, &Buffer, RenderResolution);
             }
 
@@ -435,28 +483,32 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             AplicationBuffer.Pitch = Buffer.Pitch;
             AplicationBuffer.BytesPerPixel = Buffer.BytesPerPixel;
 
-            ApplicationUpdateAndRender(AplicationBuffer, localInput, Render);
+            ApplicationUpdateAndRender(AplicationBuffer, Input, Render);
             Win32DisplayBufferInWindow(DeviceContext, Dimension, Buffer);
-
             LARGE_INTEGER WorkCounter = Win32GetWallClock();
             f32 WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter);
 
             f32 SecondsElapsedForFrame = WorkSecondsElapsed;
-
-            MiliSecondsSinceLastInput += SecondsElapsedForFrame * 1000.0f;
+            //MiliSecondsSinceLastInput += SecondsElapsedForFrame * 1000.0f;
             if (SecondsElapsedForFrame < TargetSecondsPerFrame)
             {
-                DWORD SleepMS = (DWORD)((TargetSecondsPerFrame - SecondsElapsedForFrame));
-                char TempBuffer[256];
-                sprintf_s(TempBuffer, 256, "Sleep = %d\n", SleepMS);
-                OutputDebugStringA(TempBuffer);
-                Sleep(SleepMS);
-                SecondsElapsedForFrame = Win32GetSecondsElapsed(LastCounter,
-                                                                Win32GetWallClock());
+                test = 0.5f;
+                while (SecondsElapsedForFrame < TargetSecondsPerFrame)
+                {
+                    if (SleepIsGranular)
+                    {
+                        DWORD SleepMS = (DWORD)(1000.0f * (TargetSecondsPerFrame - SecondsElapsedForFrame));
+
+                        Sleep(SleepMS);
+                    }
+                    SecondsElapsedForFrame = Win32GetSecondsElapsed(LastCounter, Win32GetWallClock());
+                }
                 MiliSecondsSinceLastInput += SecondsElapsedForFrame * 1000.0f;
             }
             else
             {
+                test -= test * 0.5f;
+                MiliSecondsSinceLastInput += SecondsElapsedForFrame * 1000.0f;
                 //// TODO(V Caraulan): Missed framerate
             }
 
@@ -473,6 +525,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                       MiliSecondsSinceLastInput, MSPerFrame, FPS, MCPF);
             OutputDebugStringA(TempBuffer);
 #endif
+
             Input.MouseWheel = 0;
             LARGE_INTEGER EndCounter = Win32GetWallClock();
             LastCounter = EndCounter;

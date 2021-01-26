@@ -58,7 +58,6 @@ check_succeeded(char *message, cl_int err)
         sprintf_s(TempBuffer, 255, "%s %d\n", message, err);
         OutputDebugStringA(TempBuffer);
         MessageBox(NULL, TempBuffer, TempBuffer, MB_ICONEXCLAMATION | MB_YESNO);
-        //*(char *)(0) = 1; //NOTE: CRASH HARD TODO
     }
 }
 
@@ -83,8 +82,6 @@ print_debug_info(cl_context context)
 		d.err |= clGetDeviceInfo(d.devices[i], CL_DEVICE_NAME,
                                  sizeof(d.device_name), d.device_name, NULL);
         check_succeeded("Getting device info", d.err);
-        //sprintf(TempBuffer, "Device: %d %s %s\n", i, d.vendor_name, d.device_name);
-
         i++;
 	}
 }
@@ -101,15 +98,16 @@ get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
 	//o->buff_size = Buffer.BytesPerPixel * Buffer.Width * Buffer.Height;
     o->buff_size = Buffer.BytesPerPixel * 7680 * 4320;
     clGetPlatformIDs(1, &platform, NULL);
-    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 16, devices, &o->num_devices);
+    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 16, devices,
+                         &o->num_devices);
 
     o->context = clCreateContext(0, o->num_devices, devices, NULL, NULL, &err);
     check_succeeded("Creating context", err);
     if (o->num_devices == 0)
 	{
         //OutputDebugStringA("No compute devices found\n");
-        MessageBox(NULL, "No compute devices found\n", NULL, MB_ICONEXCLAMATION | MB_YESNO);
-        *(char *)(0) = 1; //NOTE: CRASH HARD TODO
+        MessageBox(NULL, "No compute devices found\n",
+                   NULL, MB_ICONEXCLAMATION | MB_YESNO);
     }
 
     print_debug_info(o->context);
@@ -120,7 +118,8 @@ get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
 
     while ((cl_uint)i < o->num_devices)
 	{
-		o->cmd_queue[i] = clCreateCommandQueueWithProperties(o->context, o->devices[i],
+		o->cmd_queue[i] = clCreateCommandQueueWithProperties(o->context,
+                                                             o->devices[i],
                                                              0, &o->err);
         check_succeeded("Creating command queue", o->err);
 		i++;
@@ -155,7 +154,8 @@ load_krnl(cl_device_id device, cl_context context)
     if (program_source != NULL)
 	{
         program[0] = clCreateProgramWithSource(context, 1,
-                                               (const char**)&program_source, NULL, &err);
+                                               (const char**)&program_source,
+                                               NULL, &err);
         check_succeeded("Loading kernel", err);
 		err = clBuildProgram(program[0], 0, NULL,
                              "-cl-finite-math-only -cl-unsafe-math-optimizations",
@@ -190,7 +190,7 @@ InitFractolStructure(void)
     Result.Kernel.blue = 0.005f;
     Result.Kernel.xoffset = -9.04f;
     Result.Kernel.yoffset = -4.84f;
-    Result.Kernel.iter = 1000;
+    Result.Kernel.iter = 1500;
     Result.accel.x = 0;
     Result.accel.y = 0;
     return (Result);
@@ -205,7 +205,8 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
     if (Fractol.flag == 0)
     {
         Fractol = InitFractolStructure();
-        // TODO(V Caraulan): These values below should be recalculated everytime buffer changes ?????
+        // TODO(V Caraulan): These values below should be recalculated everytime
+        // if buffer changes ?????
         float xrange = 6;
         float yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
 
@@ -270,9 +271,9 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
     //
 
     if (Input.KeyPress & (1UL << KEY_1))
-        Fractol.Kernel.iter = 1000;
+        Fractol.Kernel.iter = 1500;
     if (Input.KeyPress & (1UL << KEY_2))
-        Fractol.Kernel.iter = 10000;
+        Fractol.Kernel.iter = 3000;
     if (Input.KeyPress & 1UL << KEY_PLUS)
         Fractol.Kernel.iter += 100;
     if (Input.KeyPress & 1UL << KEY_MINUS)
@@ -298,33 +299,41 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
     {
         get_context(Buffer, &Fractol, 0);
         Fractol.ocl.image = clCreateBuffer(Fractol.ocl.context, CL_MEM_WRITE_ONLY,
-                                           Fractol.ocl.buff_size, NULL, &Fractol.ocl.err);
+                                           Fractol.ocl.buff_size, NULL,
+                                           &Fractol.ocl.err);
         check_succeeded("Creating buffer", Fractol.ocl.err);
         Fractol.ocl.Kernel = load_krnl(Fractol.ocl.devices[0], Fractol.ocl.context);
         Fractol.flag |= 1UL << FLAG_CL_INITIALIZED;
     }
     if (Render)
     {
-        Fractol.ocl.err = clSetKernelArg(Fractol.ocl.Kernel, 0,
-                                         sizeof(cl_mem), &Fractol.ocl.image);
+        Fractol.ocl.err = clSetKernelArg(Fractol.ocl.Kernel, 0,sizeof(cl_mem),
+                                         &Fractol.ocl.image);
         check_succeeded("Setting kernel arg", Fractol.ocl.err);
-        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 1, sizeof(t_Kernel), &Fractol.Kernel);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 1, sizeof(t_Kernel),
+                                          &Fractol.Kernel);
         check_succeeded("Setting kernel arg", Fractol.ocl.err);
-        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 2, sizeof(int), &Fractol.x);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 2, sizeof(int),
+                                          &Fractol.x);
         check_succeeded("Setting kernel arg", Fractol.ocl.err);
-        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 3, sizeof(int), &Fractol.y);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 3, sizeof(int),
+                                          &Fractol.y);
         check_succeeded("Setting kernel arg", Fractol.ocl.err);
 
         size_t d_size[2];
         d_size[0] = Buffer.Width;
         d_size[1] = Buffer.Height;
-        Fractol.ocl.err = clEnqueueNDRangeKernel(Fractol.ocl.cmd_queue[0], Fractol.ocl.Kernel, 2, 0,
-                                                 d_size, NULL, 0, NULL, NULL);
+        Fractol.ocl.err = clEnqueueNDRangeKernel(Fractol.ocl.cmd_queue[0],
+                                                 Fractol.ocl.Kernel, 2, 0, d_size,
+                                                 NULL, 0, NULL, NULL);
 
         check_succeeded("Running kernel", Fractol.ocl.err);
-        Fractol.ocl.err = clEnqueueReadBuffer(Fractol.ocl.cmd_queue[0], Fractol.ocl.image, CL_FALSE,
-                                              0, Fractol.ocl.buff_size, Fractol.img, 0, NULL, NULL);
+        Fractol.ocl.err = clEnqueueReadBuffer(Fractol.ocl.cmd_queue[0],
+                                              Fractol.ocl.image, CL_FALSE, 0,
+                                              Fractol.ocl.buff_size, Fractol.img,
+                                              0, NULL, NULL);
         check_succeeded("Reading buffer", Fractol.ocl.err);
+        //clFlush(Fractol.ocl.cmd_queue[0]);
         clFinish(Fractol.ocl.cmd_queue[0]);
     }
 }

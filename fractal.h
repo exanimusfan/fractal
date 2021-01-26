@@ -62,6 +62,12 @@ typedef struct s_2d
 	f64 y;
 }              t_2d;
 
+typedef struct s_Position
+{
+	s32 x;
+    s32 y;
+}              Position;
+
 typedef struct s_fol
 {
 	s32            x;
@@ -125,10 +131,12 @@ typedef enum
 
 typedef struct
 {
-    u64 KeyPress;
-    u64 LeftStick;
-    u64 RightStick;
-    s32    MouseWheel;
+    u64      KeyPress;
+    u64      LeftStick;
+    u64      RightStick;
+    s32      MouseWheel;
+    Position MousePosition;
+    Position MouseRelativePos;
 }              application_input_handle;
 
 #define FRACTAL_H
