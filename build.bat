@@ -6,8 +6,8 @@ REM -wd4201 Nonstandard extension used (Nameles struct/union)
 REM -wd4996 ???
 
 set CommonCompilerFlags=-DProfiling -W4 -WX -wd4100 -wd4201 -MT -nologo -FC
+set MyAppLibraries=user32.lib Gdi32.lib opengl32.lib winmm.lib lightOCLSDK\lib\x86_64\OpenCL.lib
 REM  Debug Build
-cl %CommonCompilerFlags%  -Od -Z7 windows.c -Iincludes -IlightOCLSDK/include -INCREMENTAL:NO user32.lib Gdi32.lib opengl32.lib winmm.lib lightOCLSDK\lib\x86_64\OpenCL.lib /Fefractal.exe
+REM cl %CommonCompilerFlags%  -Od -Z7 windows.c -Iincludes -IlightOCLSDK/include -INCREMENTAL:NO %MyAppLibraries% /Fefractal.exe
 REM Release Build
-REM cl %CommonCompilerFlags% -O2 windows.c -Iincludes -IlightOCLSDK/include -INCREMENTAL:NO user32.lib Gdi32.lib opengl32.lib lightOCLSDK\lib\x86_64\OpenCL.lib /Fefractal.exe
-
+cl %CommonCompilerFlags% -O2 windows.c -Iincludes -IlightOCLSDK/include -INCREMENTAL:NO %MyAppLibraries% /Fefractal.exe

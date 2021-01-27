@@ -42,6 +42,18 @@ typedef struct		s_OpenCL
 	size_t           buff_size;
 }					t_OpenCL;
 
+typedef struct	s_mdl 
+{ 
+    f64	x; 
+    f64	y; 
+    int		x_dim; 
+    int		y_dim; 
+    f64	x_origin; 
+    f64	y_origin;
+    size_t	width; 
+    size_t	height; 
+}	t_mdl; 
+
 typedef struct		s_Kernel
 {
 	f64	xmin;
@@ -75,15 +87,15 @@ typedef struct s_fol
 	t_2d           accel;
 	unsigned long  flag;
 	s32            *img;
-
+    
     //// // TODO(V Caraulan): separate this struct from this middle ?
-
+    
     t_OpenCL          ocl;
 	t_Kernel       Kernel;
 	cl_device_type dtype;
 }              t_fol;
 
-typedef struct
+typedef struct s_application_offscreen_buffer
 {
     void *Memory;
     s32  Width;
@@ -92,7 +104,7 @@ typedef struct
     s32  BytesPerPixel;
 }              application_offscreen_buffer;
 
-typedef struct
+typedef struct s_game_sound_output_buffer
 {
     s32   SamplesPerSecond;
     s32   SampleCount;
@@ -129,7 +141,7 @@ typedef enum
     FLAG_CL_INITIALIZED,
 }              my_flag;
 
-typedef struct
+typedef struct s_application_input_handle
 {
     u64      KeyPress;
     u64      LeftStick;
