@@ -218,7 +218,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                                  WS_OVERLAPPEDWINDOW, // Window style
                                  // Position and Size
                                  CW_USEDEFAULT, CW_USEDEFAULT,
-                                 CW_USEDEFAULT, CW_USEDEFAULT,
+                                 //CW_USEDEFAULT, CW_USEDEFAULT,
+                                 1280, 720,
                                  NULL,       // Parent window    
                                  NULL,       // Menu
                                  WindowClass.hInstance,  // Instance handle

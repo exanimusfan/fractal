@@ -136,7 +136,7 @@ BuildErrors(cl_program program, void *user_data)
     err = clGetProgramBuildInfo (program, *device, CL_PROGRAM_BUILD_LOG,
                                  sizeof(Output), &Output[0], &size);
     //char TempBuffer[512];
-    //sprintf(TempBuffer, "Build info :\n%sEND\nsize = %lld\n", Output, size);
+    //sprintf_s(TempBuffer, 512, "Build info :\n%sEND\nsize = %lld\n", Output, size);
     //OutputDebugStringA(TempBuffer);
 }
 
@@ -214,16 +214,25 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
     if (Fractol.flag == 0)
     {
         Fractol = InitFractolStructure();
+        Fractol.flag ^= FLAG_INITIALIZED;
+        
         // TODO(V Caraulan): These values below should be recalculated everytime
         // if buffer changes ?????
         //float xrange = 6;
         float xrange = 2;
         float yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
-        
-        Fractol.flag ^= FLAG_INITIALIZED;
         Fractol.img = Buffer.Memory;
         Fractol.x = Buffer.Width / 2;
         Fractol.y = Buffer.Height / 2;
+        Fractol.Kernel.xmin = -xrange;
+        Fractol.Kernel.xmax = xrange;
+        Fractol.Kernel.ymin = -yrange;
+        Fractol.Kernel.ymax = yrange;
+    }
+    if (((float)Buffer.Width / (float)Buffer.Height) != (Fractol.Kernel.xmax / Fractol.Kernel.ymax))
+    {
+        float xrange = (float)Fractol.Kernel.xmax;
+        float yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
         Fractol.Kernel.xmin = -xrange;
         Fractol.Kernel.xmax = xrange;
         Fractol.Kernel.ymin = -yrange;
@@ -271,9 +280,9 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
     //
     
     if (Input.KeyPress & (1UL << KEY_1))
-        Fractol.Kernel.iter = 1500;
-    if (Input.KeyPress & (1UL << KEY_2))
         Fractol.Kernel.iter = 3000;
+    if (Input.KeyPress & (1UL << KEY_2))
+        Fractol.Kernel.iter = 5000;
     if (Input.KeyPress & 1UL << KEY_PLUS)
         Fractol.Kernel.iter += 100;
     if (Input.KeyPress & 1UL << KEY_MINUS)
@@ -305,7 +314,7 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol.ocl.Kernel = load_krnl(Fractol.ocl.devices[0], Fractol.ocl.context);
         Fractol.flag |= 1UL << FLAG_CL_INITIALIZED;
     }
-    if (Render && RenderPercent > 0.5f)
+    if ((Render && RenderPercent > 0.5f) || (Fractol.Kernel.iter >= 10000 && Render))
     {
         Fractol.ocl.err = clSetKernelArg(Fractol.ocl.Kernel, 0,sizeof(cl_mem),
                                          &Fractol.ocl.image);

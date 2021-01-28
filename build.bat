@@ -5,9 +5,9 @@ REM -wd4100 Unreferenced formal parameter (Variable not used from function param
 REM -wd4201 Nonstandard extension used (Nameles struct/union)
 REM -wd4996 ???
 
-set CommonCompilerFlags=-DProfiling -W4 -WX -wd4100 -wd4201 -MT -nologo -FC
-set MyAppLibraries=user32.lib Gdi32.lib opengl32.lib winmm.lib lightOCLSDK\lib\x86_64\OpenCL.lib
-REM  Debug Build
-REM cl %CommonCompilerFlags%  -Od -Z7 windows.c -Iincludes -IlightOCLSDK/include -INCREMENTAL:NO %MyAppLibraries% /Fefractal.exe
+set CommonCompilerFlags=-arch:AVX2 -MTd -nologo -fp:fast -fp:except- -Gm- -GR- -EHa- -Zo -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -FC
+set CommonLinkerFlags=-incremental:no -opt:ref user32.lib Gdi32.lib opengl32.lib winmm.lib lightOCLSDK\lib\x86_64\OpenCL.lib
+REM Debug Build
+REM cl %CommonCompilerFlags%  -Od -Z7 windows.c -Iincludes -IlightOCLSDK/include -Fefractal.exe -link %CommonLinkerFlags%
 REM Release Build
-cl %CommonCompilerFlags% -O2 windows.c -Iincludes -IlightOCLSDK/include -INCREMENTAL:NO %MyAppLibraries% /Fefractal.exe
+cl -arch:AVX2 %CommonCompilerFlags% -O2 -Qpar -GL windows.c -Iincludes -IlightOCLSDK/include -Fefractal.exe -link %CommonLinkerFlags%
