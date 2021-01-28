@@ -127,10 +127,6 @@ typedef enum
     KEY_H,
     KEY_B,
     KEY_N,
-    KEY_A,
-    KEY_D,
-    KEY_W,
-    KEY_S,
     KEY_PLUS,
     KEY_MINUS,
 } my_keys;

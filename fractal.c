@@ -186,8 +186,8 @@ InitFractolStructure(void)
     Result.Kernel.red = 0.002f;
     Result.Kernel.green = 0.003f;
     Result.Kernel.blue = 0.005f;
-    Result.Kernel.xoffset = -9.04f;
-    Result.Kernel.yoffset = -3.50f;
+    Result.Kernel.xoffset = -3.56f;
+    Result.Kernel.yoffset = -1.2f;
     Result.Kernel.iter = 1500;
     Result.accel.x = 0;
     Result.accel.y = 0;
@@ -207,7 +207,7 @@ ft_color(t_Kernel k, t_mdl m, int i)
 
 internal void
 ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
-						   application_input_handle Input, int Render, f64 test)
+						   application_input_handle Input, int Render, f64 RenderPercent)
 {
     local_persist t_fol Fractol;
     
@@ -216,7 +216,8 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol = InitFractolStructure();
         // TODO(V Caraulan): These values below should be recalculated everytime
         // if buffer changes ?????
-        float xrange = 6;
+        //float xrange = 6;
+        float xrange = 2;
         float yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
         
         Fractol.flag ^= FLAG_INITIALIZED;
@@ -228,27 +229,12 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol.Kernel.ymin = -yrange;
         Fractol.Kernel.ymax = yrange;
     }
-#if 0
-    int	neg = 0;
-    if (Input.KeyPress & 1UL << KEY_W || Input.KeyPress & 1UL << KEY_S)
-    {
-        neg = (Input.KeyPress & 1UL << KEY_W) ? -1 : 1;
-        Fractol.accel.y += neg;
-        Fractol.Kernel.yoffset += ((Fractol.Kernel.ymax) * neg * 0.05f);
-    }
-    if (Input.KeyPress & 1UL << KEY_A || Input.KeyPress & 1UL << KEY_D)
-    {
-        neg = (Input.KeyPress & 1UL << KEY_A) ? -1 : 1;
-        Fractol.accel.x += neg;
-        Fractol.Kernel.xoffset += ((Fractol.Kernel.xmax) * neg * 0.05f);
-    }
-    Fractol.accel.x -= Fractol.accel.x / 10;
-    Fractol.accel.y -= Fractol.accel.y / 10;
-#endif
     if (Input.MouseRelativePos.x || Input.MouseRelativePos.y)
     {
-        Fractol.Kernel.xoffset -= (Fractol.Kernel.xmax / (f64)Buffer.Width) * (f64)Input.MouseRelativePos.x * 0.15f;
-        Fractol.Kernel.yoffset -= (Fractol.Kernel.ymax / (f64)Buffer.Height) * (f64)Input.MouseRelativePos.y * 0.20f;
+        Fractol.Kernel.xoffset -= ((Fractol.Kernel.xmax * RenderPercent) / (f64)Buffer.Width)
+            * (f64)Input.MouseRelativePos.x;
+        Fractol.Kernel.yoffset -= ((Fractol.Kernel.ymax * RenderPercent) / (f64)Buffer.Height)
+            * (f64)Input.MouseRelativePos.y;
     }
     
     // TODO(V Caraulan): Scroll depending on its value, not direction
@@ -264,7 +250,6 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol.Kernel.ymax += Fractol.Kernel.ymax * (Input.MouseWheel * 0.001f);
         Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5f;
         Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5f;
-        
         Input.MouseWheel = 0;
     }
     
@@ -320,40 +305,37 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol.ocl.Kernel = load_krnl(Fractol.ocl.devices[0], Fractol.ocl.context);
         Fractol.flag |= 1UL << FLAG_CL_INITIALIZED;
     }
-    if (test > 0.5f)
+    if (Render && RenderPercent > 0.5f)
     {
-        if (Render)
-        {
-            Fractol.ocl.err = clSetKernelArg(Fractol.ocl.Kernel, 0,sizeof(cl_mem),
-                                             &Fractol.ocl.image);
-            check_succeeded("Setting kernel arg", Fractol.ocl.err);
-            Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 1, sizeof(t_Kernel),
-                                              &Fractol.Kernel);
-            check_succeeded("Setting kernel arg", Fractol.ocl.err);
-            Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 2, sizeof(int),
-                                              &Fractol.x);
-            check_succeeded("Setting kernel arg", Fractol.ocl.err);
-            Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 3, sizeof(int),
-                                              &Fractol.y);
-            check_succeeded("Setting kernel arg", Fractol.ocl.err);
-            
-            size_t d_size[2];
-            d_size[0] = Buffer.Width;
-            d_size[1] = Buffer.Height;
-            Fractol.ocl.err = clEnqueueNDRangeKernel(Fractol.ocl.cmd_queue[0],
-                                                     Fractol.ocl.Kernel, 2, 0, d_size,
-                                                     NULL, 0, NULL, NULL);
-            
-            check_succeeded("Running kernel", Fractol.ocl.err);
-            Fractol.ocl.err = clEnqueueReadBuffer(Fractol.ocl.cmd_queue[0],
-                                                  Fractol.ocl.image, CL_FALSE, 0,
-                                                  Fractol.ocl.buff_size, Fractol.img,
-                                                  0, NULL, NULL);
-            check_succeeded("Reading buffer", Fractol.ocl.err);
-            clFinish(Fractol.ocl.cmd_queue[0]);
-        }
-    }
-    else if (Render)
+        Fractol.ocl.err = clSetKernelArg(Fractol.ocl.Kernel, 0,sizeof(cl_mem),
+                                         &Fractol.ocl.image);
+        check_succeeded("Setting kernel arg", Fractol.ocl.err);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 1, sizeof(t_Kernel),
+                                          &Fractol.Kernel);
+        check_succeeded("Setting kernel arg", Fractol.ocl.err);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 2, sizeof(int),
+                                          &Fractol.x);
+        check_succeeded("Setting kernel arg", Fractol.ocl.err);
+        Fractol.ocl.err |= clSetKernelArg(Fractol.ocl.Kernel, 3, sizeof(int),
+                                          &Fractol.y);
+        check_succeeded("Setting kernel arg", Fractol.ocl.err);
+        
+        size_t d_size[2];
+        d_size[0] = Buffer.Width;
+        d_size[1] = Buffer.Height;
+        Fractol.ocl.err = clEnqueueNDRangeKernel(Fractol.ocl.cmd_queue[0],
+                                                 Fractol.ocl.Kernel, 2, 0, d_size,
+                                                 NULL, 0, NULL, NULL);
+        
+        check_succeeded("Running kernel", Fractol.ocl.err);
+        Fractol.ocl.err = clEnqueueReadBuffer(Fractol.ocl.cmd_queue[0],
+                                              Fractol.ocl.image, CL_FALSE, 0,
+                                              Fractol.ocl.buff_size, Fractol.img,
+                                              0, NULL, NULL);
+        check_succeeded("Reading buffer", Fractol.ocl.err);
+        clFinish(Fractol.ocl.cmd_queue[0]);
+    }// TODO(Victor Caraulan): This 10000 iter is a good ideea, but not the way it's implemented right now.
+    else if (Render && Fractol.Kernel.iter < 10000)
     {
         int x = 0;
         int y = 0;

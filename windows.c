@@ -26,6 +26,11 @@
 
 #include "windows_layer.h"
 
+// TODO(Victor Caraulan): Remove globals
+
+global_variable int GlobalRunning = 1;
+
+
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, \
 XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -131,14 +136,20 @@ MainWindowCallback(HWND Window, UINT Message,
     LRESULT Result = 0;
     switch (Message)
     {
-        case WM_KEYUP:
-        case WM_KEYDOWN:
+        case WM_DESTROY:
         {
-            OutputDebugStringA("ERROR\n");
-            MessageBox(NULL, "You shouldn't be able to lose key presses\n", NULL,
-                       MB_ICONEXCLAMATION | MB_YESNO);
-            *(char *)(0) = 1; //NOTE: CRASH HARD TODO
-            
+            GlobalRunning = 0;
+            PostQuitMessage(0);
+        } break;
+        
+        case WM_QUIT:
+        {
+            GlobalRunning = 0;
+            DestroyWindow(Window);
+        } break;
+        case WM_CLOSE:
+        {
+            GlobalRunning = 0;
         } break;
         default:
         {
@@ -193,11 +204,11 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
     u8 DesiredSchedulerMS = 1;
     BOOL SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
     
-    //int MonitorRefreshHz = 60;
-    //int ApplicationHz = MonitorRefreshHz / 2;
-    int ApplicationHz = 30;
+    // TODO(Victor Caraulan): How to get this from windows ?
+    int MonitorRefreshHz = 60;
+    int ApplicationHz = MonitorRefreshHz / 2;
     f32 TargetSecondsPerFrame = 1.0f / (f32)ApplicationHz;
-    f64 test = 1.0f; // TODO(V Caraulan): Remove this
+    f64 ResolutionPercentage = 1.0f; // TODO(V Caraulan): Remove this
     Win32LoadXInput();
     if (RegisterClassA(&WindowClass))
     {
@@ -213,7 +224,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                                  WindowClass.hInstance,  // Instance handle
                                  NULL        // Additional application data
                                  );
-        
     }
     if (Window)
     {
@@ -224,12 +234,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                                                             Resolution.Height * 4);
         win32_offscreen_buffer   Buffer = {0};
         Win32ResizeDIBSection(Storage, &Buffer, Resolution);
-        int Running = 1;
         application_input_handle Input = {0};
         
         // NOTE(V Caraulan): Begining of profiling
         LARGE_INTEGER LastCounter = Win32GetWallClock();
-        u64 LastCycleCount = __rdtsc();
         
         f32 MiliSecondsSinceLastInput = 0.0f;
         
@@ -237,34 +245,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
         BOOL MouseWasDown = 0;
         int xoffset = 0;
         int yoffset = 0;
-        while (Running)
+        while (GlobalRunning)
         {
             MSG Message;
             while (PeekMessageA(&Message, NULL, 0, 0, PM_REMOVE))
             {
                 switch(Message.message)
                 {
-                    case WM_DESTROY:
-                    {
-                        Running = 0;
-                        PostQuitMessage(0);
-                    } break;
-                    
-                    case WM_QUIT:
-                    {
-                        Running = 0;
-                        PostQuitMessage(0);
-                    } break;
                     case WM_SIZE:
                     {
                         MiliSecondsSinceLastInput = 0.0f;
                         win32_window_dimension Dimension = GetWindowDimension(Window);
                         Win32ResizeDIBSection(Storage, &Buffer, Dimension);
-                    } break;
-                    case WM_CLOSE:
-                    {
-                        Running = 0;
-                        PostQuitMessage(0);
                     } break;
                     case WM_MOUSEWHEEL:
                     {
@@ -300,35 +292,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                                 case VK_ESCAPE:
                                 {
                                     if (IsDown)
-                                        Running = 0;
-                                }break;
-                                case VK_UP:
-                                case 'W':
-                                {
-                                    Input.KeyPress = CheckKeyPress(IsDown,
-                                                                   Input.KeyPress,
-                                                                   KEY_W);
-                                }break;
-                                case VK_DOWN:
-                                case 'S':
-                                {
-                                    Input.KeyPress = CheckKeyPress(IsDown,
-                                                                   Input.KeyPress,
-                                                                   KEY_S);
-                                }break;
-                                case VK_LEFT:
-                                case 'A':
-                                {
-                                    Input.KeyPress = CheckKeyPress(IsDown,
-                                                                   Input.KeyPress,
-                                                                   KEY_A);
-                                }break;
-                                case VK_RIGHT:
-                                case 'D':
-                                {
-                                    Input.KeyPress = CheckKeyPress(IsDown,
-                                                                   Input.KeyPress,
-                                                                   KEY_D);
+                                        GlobalRunning = 0;
                                 }break;
                                 case '1':
                                 {
@@ -420,7 +384,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                 Input.MousePosition.y = MousePosition.y;
                 xoffset = -MousePosition.x;
                 yoffset = -MousePosition.y;
-                MiliSecondsSinceLastInput = 0.0f;
+                if (Input.MouseRelativePos.x != 0 || Input.MouseRelativePos.y != 0)
+                    MiliSecondsSinceLastInput = 0.0f;
                 MouseWasDown = 1;
 #if 0
                 char Temp[256];
@@ -433,6 +398,8 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             {
                 xoffset = 0;
                 yoffset = 0;
+                Input.MouseRelativePos.x = 0;
+                Input.MouseRelativePos.y = 0;
                 MouseWasDown = 0;
             }
             
@@ -451,7 +418,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                     int Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
                     int BButton = (Pad->wButtons & XINPUT_GAMEPAD_B);
                     if (BButton)
-                        Running = 0;
+                        GlobalRunning = 0;
                     int StickX = Pad->sThumbLX;
                     int StickY = Pad->sThumbLY;
 #endif
@@ -465,18 +432,17 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             if (MiliSecondsSinceLastInput >= 250.0f && !(Buffer.Width == Dimension.Width && Buffer.Height == Dimension.Height))
             {
                 Render = 1;
+                ResolutionPercentage = 1.0f;
                 Win32ResizeDIBSection(Storage, &Buffer, Dimension);
             }
             else if (MiliSecondsSinceLastInput >= 0 && MiliSecondsSinceLastInput < 100.0f)
             {
                 Render = 1;
                 win32_window_dimension RenderResolution = Dimension;
-                RenderResolution.Width  = (int)(RenderResolution.Width * test);
-                RenderResolution.Height = (int)(RenderResolution.Height * test);
+                RenderResolution.Width  = (int)(RenderResolution.Width * ResolutionPercentage);
+                RenderResolution.Height = (int)(RenderResolution.Height * ResolutionPercentage);
                 Win32ResizeDIBSection(Storage, &Buffer, RenderResolution);
             }
-            
-            Dimension = GetWindowDimension(Window);
             
             application_offscreen_buffer AplicationBuffer = {0};
             
@@ -486,19 +452,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             AplicationBuffer.Pitch = Buffer.Pitch;
             AplicationBuffer.BytesPerPixel = Buffer.BytesPerPixel;
             
-            ApplicationUpdateAndRender(AplicationBuffer, Input, Render, test);
+            ApplicationUpdateAndRender(AplicationBuffer, Input, Render, ResolutionPercentage);
             Win32DisplayBufferInWindow(DeviceContext, Dimension, Buffer);
+            
             LARGE_INTEGER WorkCounter = Win32GetWallClock();
             f32 WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter);
             
             f32 SecondsElapsedForFrame = WorkSecondsElapsed;
-            //MiliSecondsSinceLastInput += SecondsElapsedForFrame * 1000.0f;
             
             if (SecondsElapsedForFrame < (TargetSecondsPerFrame / 2))
-                test = 1.0f;
+                ResolutionPercentage = 1.0f;
             if (SecondsElapsedForFrame < TargetSecondsPerFrame)
             {
-                //OutputDebugStringA("Success\n");
                 while (SecondsElapsedForFrame < TargetSecondsPerFrame)
                 {
                     if (SleepIsGranular)
@@ -512,12 +477,11 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             }
             else
             {
-                test = 0.1f;
-                test = ClampF(test, 0.1f, 1.0f);
+                ResolutionPercentage = 0.1f;
+                ResolutionPercentage = ClampF(ResolutionPercentage, 0.1f, 1.0f);
                 MiliSecondsSinceLastInput += SecondsElapsedForFrame * 1000.0f;
                 //// TODO(V Caraulan): Missed framerate
             }
-            
 #if 0
             f32 MSPerFrame = (1000.0f * (f32)CounterElapsed) / (f32)PerfCountFrequency;
             f32 FPS = (f32)PerfCountFrequency / (f32)CounterElapsed;
@@ -529,14 +493,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                       MiliSecondsSinceLastInput, MSPerFrame, FPS, MCPF);
             OutputDebugStringA(TempBuffer);
 #endif
-            
             Input.MouseWheel = 0;
             LARGE_INTEGER EndCounter = Win32GetWallClock();
             LastCounter = EndCounter;
-            
-            s64 EndCycleCount = __rdtsc();
-            //s64 CycleElapsed = EndCycleCount - LastCycleCount;
-            LastCycleCount = EndCycleCount;
             
         }
         ReleaseDC(Window, DeviceContext);
