@@ -6,48 +6,33 @@
 
 #include "constant_strings.c"
 
-#if 0
-
-internal void
-NumberDebugOutput(int Number)
-{
-    char StringNumber[16];
-    int Index;
-    
-    Index = 0;
-    if (Number < 0)
-    {
-        StringNumber[0] = '-';
-        Index++;
-        Number = -Number;
-    }
-    while (Number > 10)
-    {
-        StringNumber[Index++] = '0' + (Number % 10);
-        Number /= 10;
-    }
-    OutputDebugStringA(&StringNumber[0]);
-    OutputDebugStringA(" Test\n");
-}
-
-#endif
 internal int
 finish_cl(cl_context context,
-          cl_command_queue cmd_queue, cl_mem image)
+          cl_command_queue *cmd_queue, cl_uint num_devices, cl_mem image)
 {
-	if (image != NULL)
+    cl_uint i;
+    
+    i = 0;
+    if (image)
 		clReleaseMemObject(image);
-	if (cmd_queue != NULL)
-		clReleaseCommandQueue(cmd_queue);
-	if (context != NULL)
+    while (i < num_devices)
+    {
+        if (cmd_queue[i] != NULL)
+            clReleaseCommandQueue(cmd_queue[i]);
+        i++;
+    }
+	if (context)
 		clReleaseContext(context);
 	return (0);
 }
 
+#if 1
 // TODO(V Caraulan): Remove this
 #include <windows.h>
 #include <stdio.h>
 //
+#endif
+
 
 internal void
 check_succeeded(char *message, cl_int err)
@@ -55,9 +40,8 @@ check_succeeded(char *message, cl_int err)
     if (err != CL_SUCCESS)
     {
         char TempBuffer[256];
-        sprintf_s(TempBuffer, 255, "%s %d\n", message, err);
-        OutputDebugStringA(TempBuffer);
-        MessageBox(NULL, TempBuffer, TempBuffer, MB_ICONEXCLAMATION | MB_YESNO);
+        sprintf_s(TempBuffer, 256, "%s %d\n", message, err);
+        MessageBox(NULL, TempBuffer, TempBuffer, MB_ICONEXCLAMATION | MB_OK);
     }
 }
 
@@ -94,8 +78,7 @@ get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
     cl_platform_id platform = {0};
     
     o            = &fol->ocl;
-	//o->buff_size = Buffer.BytesPerPixel * Buffer.Width * Buffer.Height;
-    o->buff_size = Buffer.BytesPerPixel * 7680 * 4320;
+	o->buff_size = Buffer.BytesPerPixel * Buffer.Width * Buffer.Height;
     clGetPlatformIDs(1, &platform, NULL);
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 16, devices,
                          &o->num_devices);
@@ -106,7 +89,7 @@ get_context(application_offscreen_buffer Buffer, t_fol *fol, int i)
 	{
         //OutputDebugStringA("No compute devices found\n");
         MessageBox(NULL, "No compute devices found\n",
-                   NULL, MB_ICONEXCLAMATION | MB_YESNO);
+                   NULL, MB_ICONEXCLAMATION | MB_OK);
     }
     
     print_debug_info(o->context);
@@ -197,8 +180,8 @@ InitFractolStructure(void)
 internal inline int
 ft_color(t_Kernel k, t_mdl m, int i) 
 { 
-    int r; int g; int b; double color_const; 
-    color_const = (i + 1 - (log(2.0) / (log(m.x * m.x + m.y * m.y))) / log(2.0)); 
+    int r; int g; int b; float color_const;
+    color_const = (float)(i + 1 - (log(2.0) / (log(m.x * m.x + m.y * m.y))) / log(2.0)); 
     r = (int)(sin(k.red * color_const) * 127.5 + 127.5); 
     g = (int)(sin(k.green * color_const) * 127.5 + 127.5); 
     b = (int)(sin(k.blue * color_const) * 127.5 + 127.5);
@@ -216,12 +199,8 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol = InitFractolStructure();
         Fractol.flag ^= FLAG_INITIALIZED;
         
-        // TODO(V Caraulan): These values below should be recalculated everytime
-        // if buffer changes ?????
-        //float xrange = 6;
         float xrange = 2;
         float yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
-        Fractol.img = Buffer.Memory;
         Fractol.x = Buffer.Width / 2;
         Fractol.y = Buffer.Height / 2;
         Fractol.Kernel.xmin = -xrange;
@@ -229,7 +208,8 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol.Kernel.ymin = -yrange;
         Fractol.Kernel.ymax = yrange;
     }
-    if (((float)Buffer.Width / (float)Buffer.Height) != (Fractol.Kernel.xmax / Fractol.Kernel.ymax))
+    if (((float)Buffer.Width / (float)Buffer.Height) !=
+        (Fractol.Kernel.xmax / Fractol.Kernel.ymax))
     {
         float xrange = (float)Fractol.Kernel.xmax;
         float yrange = xrange / ((float)Buffer.Width / (float)Buffer.Height);
@@ -240,13 +220,17 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
     }
     if (Input.MouseRelativePos.x || Input.MouseRelativePos.y)
     {
-        Fractol.Kernel.xoffset -= ((Fractol.Kernel.xmax * RenderPercent) / (f64)Buffer.Width)
+        Fractol.Kernel.xoffset -= ((Fractol.Kernel.xmax * RenderPercent) /
+                                   (f64)Buffer.Width)
             * (f64)Input.MouseRelativePos.x;
-        Fractol.Kernel.yoffset -= ((Fractol.Kernel.ymax * RenderPercent) / (f64)Buffer.Height)
+        Fractol.Kernel.yoffset -= ((Fractol.Kernel.ymax * RenderPercent) /
+                                   (f64)Buffer.Height)
             * (f64)Input.MouseRelativePos.y;
     }
     
-    // TODO(V Caraulan): Scroll depending on its value, not direction
+    // TODO(V Caraulan): Scroll sometimes inverts vertically the whole buffer
+    // I suspect that ymin gets swapped with ymax ? 
+    // Maybe clamping values here to be safe
     
     if (Input.MouseWheel != 0)
     {
@@ -257,16 +241,12 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol.Kernel.xmax += Fractol.Kernel.xmax * (Input.MouseWheel * 0.001f);
         Fractol.Kernel.ymin += Fractol.Kernel.ymin * (Input.MouseWheel * 0.001f);
         Fractol.Kernel.ymax += Fractol.Kernel.ymax * (Input.MouseWheel * 0.001f);
+        // TODO(V Caraulan): This offset happens when zooming in so it's in center.
+        //Could change it so it zooms in depending on mouse position
         Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5f;
         Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5f;
         Input.MouseWheel = 0;
     }
-    
-    // TODO(V Caraulan): This offset happens when zooming in so it's in center.
-    //Could change it so it zooms in depending on mouse position
-    //Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5;
-    //Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5;
-    
     
     // TODO(V Caraulan): Any way to this in a more elegant way ?
     if (Fractol.accel.x < 0.00001f && Fractol.accel.x >= 0.0f)
@@ -278,7 +258,6 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
     else if (Fractol.accel.y > -0.00001f && Fractol.accel.y <= 0.0f)
         Fractol.accel.y = 0;
     //
-    
     if (Input.KeyPress & (1UL << KEY_1))
         Fractol.Kernel.iter = 3000;
     if (Input.KeyPress & (1UL << KEY_2))
@@ -303,7 +282,7 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
     Fractol.Kernel.red = ClampF(Fractol.Kernel.red, 0.001f, 0.5f);
     Fractol.Kernel.green = ClampF(Fractol.Kernel.green, 0.001f, 0.5f);
     Fractol.Kernel.blue = ClampF(Fractol.Kernel.blue, 0.001f, 0.5f);
-    // TODO(V Caraulan): Group this with the other change if buffer changes ?
+    
     if (!(Fractol.flag & (1UL << FLAG_CL_INITIALIZED)))
     {
         get_context(Buffer, &Fractol, 0);
@@ -313,6 +292,22 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         check_succeeded("Creating buffer", Fractol.ocl.err);
         Fractol.ocl.Kernel = load_krnl(Fractol.ocl.devices[0], Fractol.ocl.context);
         Fractol.flag |= 1UL << FLAG_CL_INITIALIZED;
+    }
+    
+    if (Fractol.ocl.buff_size < Buffer.BytesPerPixel * Buffer.Width * Buffer.Height)
+    {
+        clFinish(Fractol.ocl.cmd_queue[0]);
+        finish_cl(Fractol.ocl.context,
+                  Fractol.ocl.cmd_queue,
+                  Fractol.ocl.num_devices,
+                  Fractol.ocl.image);
+        get_context(Buffer, &Fractol, 0);
+        Fractol.ocl.image = clCreateBuffer(Fractol.ocl.context, CL_MEM_WRITE_ONLY,
+                                           Fractol.ocl.buff_size, NULL,
+                                           &Fractol.ocl.err);
+        check_succeeded("Creating buffer", Fractol.ocl.err);
+        Fractol.ocl.Kernel = load_krnl(Fractol.ocl.devices[0], Fractol.ocl.context);
+        Fractol.ocl.buff_size = Buffer.BytesPerPixel * Buffer.Width * Buffer.Height;
     }
     if ((Render && RenderPercent > 0.5f) || (Fractol.Kernel.iter >= 10000 && Render))
     {
@@ -335,15 +330,17 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         Fractol.ocl.err = clEnqueueNDRangeKernel(Fractol.ocl.cmd_queue[0],
                                                  Fractol.ocl.Kernel, 2, 0, d_size,
                                                  NULL, 0, NULL, NULL);
-        
+        Fractol.img = Buffer.Memory;
         check_succeeded("Running kernel", Fractol.ocl.err);
         Fractol.ocl.err = clEnqueueReadBuffer(Fractol.ocl.cmd_queue[0],
                                               Fractol.ocl.image, CL_FALSE, 0,
-                                              Fractol.ocl.buff_size, Fractol.img,
+                                              Buffer.BytesPerPixel * Buffer.Width * Buffer.Height,
+                                              Fractol.img,
                                               0, NULL, NULL);
         check_succeeded("Reading buffer", Fractol.ocl.err);
         clFinish(Fractol.ocl.cmd_queue[0]);
-    }// TODO(Victor Caraulan): This 10000 iter is a good ideea, but not the way it's implemented right now.
+    }
+#if 1
     else if (Render && Fractol.Kernel.iter < 10000)
     {
         int x = 0;
@@ -354,7 +351,7 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
             x = 0;
             while (x < Buffer.Width)
             {
-                t_mdl  m; 
+                t_mdl  m;
                 f64 xtemp;
                 int    i; 
                 
@@ -384,4 +381,48 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
             y++;
         }
     }
+#endif
+    // TODO(Victor Caraulan): Try with sse performance
+#if 0
+    else if (Render && Fractol.Kernel.iter < 10000)
+    {
+        int x = 0;
+        int y = 0;
+        
+        while (y < Buffer.Height)
+        {
+            x = 0;
+            while (x < Buffer.Width)
+            {
+                t_mdl  m;
+                f64 xtemp;
+                int    i; 
+                
+                m.x_dim = x;
+                m.y_dim = y;
+                m.width = Buffer.Width;
+                m.height = Buffer.Height; 
+                m.x_origin = ((f64)m.x_dim / m.width * Fractol.Kernel.xmax - Fractol.Kernel.xmin) + Fractol.Kernel.xoffset; 
+                m.y_origin = ((f64)m.y_dim / m.height * Fractol.Kernel.ymax - Fractol.Kernel.ymin) + Fractol.Kernel.yoffset; 
+                m.x = 0.0; 
+                m.y = 0.0; 
+                i = 0; 
+                xtemp = m.x * m.x - m.y * m.y + m.x_origin; 
+                while (m.x * m.x + m.y * m.y <= 4 && i < Fractol.Kernel.iter) 
+                { 
+                    xtemp = m.x * m.x - m.y * m.y + m.x_origin; 
+                    m.y = 2 * m.x * m.y + m.y_origin; 
+                    m.x = xtemp; 
+                    i++; 
+                } 
+                if (i == Fractol.Kernel.iter) 
+                    Fractol.img[(m.width * m.y_dim) + m.x_dim] = 0; 
+                else 
+                    Fractol.img[(m.width * m.y_dim) + m.x_dim] = ft_color(Fractol.Kernel, m, i);
+                x++;
+            }
+            y++;
+        }
+    }
+#endif
 }

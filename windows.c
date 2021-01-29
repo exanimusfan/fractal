@@ -10,8 +10,6 @@
 #define internal static 
 #define global_variable static
 #define local_persist static
-#define ApplicationTotalMemory (7680 * 4320 * 4) //This is a frame
-//                                                 of 8k resolution
 
 #include "fractal.h"
 #include "fractal.c"
@@ -78,37 +76,37 @@ GetWindowDimension(HWND Window)
     return (Result);
 }
 
-internal inline win32_persistent_storage
-InitializeMemory(size_t Size)
-{
-    win32_persistent_storage Result = {0};
-    
-    Result.UsedSize = 0;
-    Result.TotalSize = ApplicationTotalMemory;
-    if (Size > Result.TotalSize) // TODO(V Caraulan): Potential realloc later
-        Result.TotalSize = Size;
-    Result.Memory = VirtualAlloc(0, Result.TotalSize,
-                                 MEM_RESERVE | MEM_COMMIT,
-                                 PAGE_READWRITE);
-    if (!Result.Memory)
-    {
-        MessageBox(NULL, "Can not initialize memory\n", NULL,
-                   MB_ICONEXCLAMATION | MB_YESNO);
-        *(char *)(0) = 1; //NOTE: CRASH HARD TODO
-    }
-    return (Result);
-}
-
 internal void
-Win32ResizeDIBSection(win32_persistent_storage Storage,
+Win32ResizeDIBSection(win32_persistent_storage *Storage,
                       win32_offscreen_buffer *Buffer,
                       win32_window_dimension Dimension)
 {
-    Buffer->Memory = Storage.Memory;
     Buffer->Width = Dimension.Width;
     Buffer->Height = Dimension.Height;
     Buffer->BytesPerPixel = 4;
     Buffer->Pitch = Buffer->Width * Buffer->BytesPerPixel;
+    
+    Storage->UsedSize = Dimension.Width * Dimension.Height
+        * Buffer->BytesPerPixel;
+    
+    if (Dimension.Width *
+        Dimension.Height *
+        Buffer->BytesPerPixel > Storage->TotalSize)
+    {
+        Storage->TotalSize = Dimension.Width *
+            Dimension.Height * Buffer->BytesPerPixel;
+        if (Storage->Memory)
+            VirtualFree(Storage->Memory, 0, MEM_RELEASE);
+        Storage->Memory = VirtualAlloc(0, Storage->TotalSize,
+                                       MEM_RESERVE | MEM_COMMIT,
+                                       PAGE_READWRITE);
+    }
+    if (!Storage->Memory)
+    {
+        MessageBox(NULL, "Can not initialize memory\n", NULL,
+                   MB_ICONEXCLAMATION | MB_OK);
+    }
+    Buffer->Memory = Storage->Memory;
     
     Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader);
     Buffer->Info.bmiHeader.biWidth = Buffer->Width;
@@ -229,12 +227,12 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
     if (Window)
     {
         ShowWindow(Window, ShowCode);
-        HDC DeviceContext = GetDC(Window);
         win32_window_dimension   Resolution = GetWindowDimension(Window);
-        win32_persistent_storage Storage = InitializeMemory(Resolution.Width  *
-                                                            Resolution.Height * 4);
+        win32_persistent_storage Storage = {0};
         win32_offscreen_buffer   Buffer = {0};
-        Win32ResizeDIBSection(Storage, &Buffer, Resolution);
+        Win32ResizeDIBSection(&Storage, &Buffer, Resolution);
+        if (!Storage.Memory)
+            GlobalRunning = 0;
         application_input_handle Input = {0};
         
         // NOTE(V Caraulan): Begining of profiling
@@ -257,7 +255,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                     {
                         MiliSecondsSinceLastInput = 0.0f;
                         win32_window_dimension Dimension = GetWindowDimension(Window);
-                        Win32ResizeDIBSection(Storage, &Buffer, Dimension);
+                        Win32ResizeDIBSection(&Storage, &Buffer, Dimension);
+                        if (!Storage.Memory)
+                            PostQuitMessage(0);
                     } break;
                     case WM_MOUSEWHEEL:
                     {
@@ -388,12 +388,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                 if (Input.MouseRelativePos.x != 0 || Input.MouseRelativePos.y != 0)
                     MiliSecondsSinceLastInput = 0.0f;
                 MouseWasDown = 1;
-#if 0
-                char Temp[256];
-                sprintf_s(Temp, 256, "x %d, %d, %d, %d\n", Input.MousePosition.x, Input.MousePosition.y, Input.MouseRelativePos.x,
-                          Input.MouseRelativePos.y);
-                OutputDebugStringA(Temp);
-#endif
             }
             else if (!MouseIsDown && MouseWasDown)
             {
@@ -411,6 +405,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                 XINPUT_STATE ControllerState = {0};
                 if (XInputGetState_(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
                 {
+                    // TODO(Victor Caraulan): Implement controller movement ???
 #if 0
                     XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
                     int Up = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
@@ -434,7 +429,12 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             {
                 Render = 1;
                 ResolutionPercentage = 1.0f;
-                Win32ResizeDIBSection(Storage, &Buffer, Dimension);
+                Win32ResizeDIBSection(&Storage, &Buffer, Dimension);
+                if (!Storage.Memory)
+                {
+                    Render = 0;
+                    PostQuitMessage(0);
+                }
             }
             else if (MiliSecondsSinceLastInput >= 0 && MiliSecondsSinceLastInput < 100.0f)
             {
@@ -442,9 +442,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                 win32_window_dimension RenderResolution = Dimension;
                 RenderResolution.Width  = (int)(RenderResolution.Width * ResolutionPercentage);
                 RenderResolution.Height = (int)(RenderResolution.Height * ResolutionPercentage);
-                Win32ResizeDIBSection(Storage, &Buffer, RenderResolution);
+                Win32ResizeDIBSection(&Storage, &Buffer, RenderResolution);
+                if (!Storage.Memory)
+                {
+                    Render = 0;
+                    PostQuitMessage(0);
+                }
             }
             
+            if ((Buffer.Width *
+                 Buffer.Height *
+                 Buffer.BytesPerPixel) > Storage.TotalSize)
+                Win32ResizeDIBSection(&Storage, &Buffer, Dimension);
             application_offscreen_buffer AplicationBuffer = {0};
             
             AplicationBuffer.Memory = Buffer.Memory;
@@ -454,6 +463,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             AplicationBuffer.BytesPerPixel = Buffer.BytesPerPixel;
             
             ApplicationUpdateAndRender(AplicationBuffer, Input, Render, ResolutionPercentage);
+            HDC DeviceContext = GetDC(Window);
             Win32DisplayBufferInWindow(DeviceContext, Dimension, Buffer);
             
             LARGE_INTEGER WorkCounter = Win32GetWallClock();
@@ -478,10 +488,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             }
             else
             {
+                //// NOTE(V Caraulan): Missed framerate
                 ResolutionPercentage = 0.1f;
                 ResolutionPercentage = ClampF(ResolutionPercentage, 0.1f, 1.0f);
                 MiliSecondsSinceLastInput += SecondsElapsedForFrame * 1000.0f;
-                //// TODO(V Caraulan): Missed framerate
             }
 #if 0
             f32 MSPerFrame = (1000.0f * (f32)CounterElapsed) / (f32)PerfCountFrequency;
@@ -497,9 +507,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             Input.MouseWheel = 0;
             LARGE_INTEGER EndCounter = Win32GetWallClock();
             LastCounter = EndCounter;
+            ReleaseDC(Window, DeviceContext);
             
         }
-        ReleaseDC(Window, DeviceContext);
     }
     return (0);
 }

@@ -20,7 +20,7 @@ typedef struct
 
 typedef struct
 {
-    void *Memory;
+    void   *Memory;
     size_t UsedSize;
     size_t TotalSize;
 }              win32_persistent_storage;

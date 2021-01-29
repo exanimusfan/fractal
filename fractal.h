@@ -87,9 +87,9 @@ typedef struct s_fol
 	t_2d           accel;
 	unsigned long  flag;
 	s32            *img;
-    
+
     //// // TODO(V Caraulan): separate this struct from this middle ?
-    
+
     t_OpenCL          ocl;
 	t_Kernel       Kernel;
 	cl_device_type dtype;
