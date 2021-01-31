@@ -7,9 +7,9 @@ REM -wd4996 ???
 REM -Qvec-report:2 -Qpar-report:2
 REM -arch:AVX2 maybe should be replaced with sse instructions
 
-set CommonCompilerFlags= -MTd -nologo -fp:fast -fp:except- -Gm- -GR- -EHa- -Zo -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -FC
+set CommonCompilerFlags=-nologo -fp:fast -fp:except- -Gm- -GR- -EHa- -Zo -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -FC
 set CommonLinkerFlags=-incremental:no -opt:ref user32.lib Gdi32.lib opengl32.lib winmm.lib lightOCLSDK\lib\x86_64\OpenCL.lib
 REM Debug Build
-REM cl %CommonCompilerFlags%  -Od -Z7 windows.c -Iincludes -IlightOCLSDK/include -Fefractal.exe -link %CommonLinkerFlags%
+REM cl %CommonCompilerFlags%  -MTd -Od -Z7 windows.c -IlightOCLSDK/include -Fefractal.exe -link %CommonLinkerFlags%
 REM Release Build
-cl %CommonCompilerFlags% -O2 -Qpar -GL windows.c -Iincludes -IlightOCLSDK/include -Fefractal.exe -link %CommonLinkerFlags%
+cl %CommonCompilerFlags% -MT -openmp -O2 -GL windows.c -IlightOCLSDK/include -Fefractal.exe -link %CommonLinkerFlags%

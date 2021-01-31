@@ -4,7 +4,6 @@
 
 typedef struct
 {
-    BITMAPINFO Info;
     void *Memory;
     int  Width;
     int  Height;

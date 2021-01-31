@@ -44,14 +44,14 @@ typedef struct		s_OpenCL
 
 typedef struct	s_mdl 
 { 
-    f64	x; 
-    f64	y; 
-    int		x_dim; 
-    int		y_dim; 
+    f64	x;
+    f64	y;
     f64	x_origin; 
     f64	y_origin;
-    size_t	width; 
-    size_t	height; 
+    s32	x_dim;
+    s32	y_dim;
+    u32	width;
+    u32	height;
 }	t_mdl; 
 
 typedef struct		s_Kernel
@@ -63,10 +63,7 @@ typedef struct		s_Kernel
 	f64	xoffset;
 	f64	yoffset;
 	s32	iter;
-	f64	red;
-	f64	green;
-	f64	blue;
-}					t_Kernel;
+	}					t_Kernel;
 
 typedef struct s_2d
 {
@@ -104,13 +101,6 @@ typedef struct s_application_offscreen_buffer
     s32  BytesPerPixel;
 }              application_offscreen_buffer;
 
-typedef struct s_game_sound_output_buffer
-{
-    s32   SamplesPerSecond;
-    s32   SampleCount;
-    s16 *Samples;
-}              game_sound_output_buffer;
-
 typedef enum 
 {
     DEFAULT,
@@ -140,8 +130,6 @@ typedef enum
 typedef struct s_application_input_handle
 {
     u64      KeyPress;
-    u64      LeftStick;
-    u64      RightStick;
     s32      MouseWheel;
     Position MousePosition;
     Position MouseRelativePos;

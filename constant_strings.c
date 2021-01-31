@@ -7,8 +7,7 @@
 internal char *
 MandelbrotClSource()
 {
-    char *Source = "\
-typedef struct	s_krn \n\
+    char *Source = "typedef struct	s_krn \n\
 { \n\
 double	xmin; \n\
 double	xmax; \n\
@@ -17,21 +16,18 @@ double	ymax; \n\
 double	xoffset; \n\
 double	yoffset; \n\
 int		iter; \n\
-double	red; \n\
-double	green; \n\
-double	blue; \n\
 }	t_krn; \n\
 \n\
 typedef struct	s_mdl \n\
 { \n\
 double	x; \n\
 double	y; \n\
-int		x_dim; \n\
-int		y_dim; \n\
 double	x_origin; \n\
 double	y_origin; \n\
-size_t	width; \n\
-size_t	height; \n\
+unsigned int	width; \n\
+unsigned int	height; \n\
+int		x_dim; \n\
+int		y_dim; \n\
 }	t_mdl; \n\
 \n\
 \n\
@@ -39,10 +35,10 @@ static int		ft_color(t_krn k, t_mdl m, int i) \n\
 { \n\
 int r; int g; int b; double color_const; \n\
 color_const = (i + 1 - (log(2.0) / (log(m.x * m.x + m.y * m.y))) / log(2.0)); \n\
-r = sin(k.red * color_const) * 127.5 + 127.5; \n\
-g = sin(k.green * color_const) * 127.5 + 127.5; \n\
-b = sin(k.blue * color_const) * 127.5 + 127.5; \n\
-return ((r << 16) | (g << 8) | b); \n\
+b = sin(0.015 * color_const) * 127.5 + 127.5; \n\
+g = sin(0.017 * color_const) * 127.5 + 127.5; \n\
+r = sin(0.019 * color_const) * 127.5 + 127.5; \n\
+return ((b << 16) | (g << 8) | r); \n\
 } \n\
 \n\
 static t_mdl	mdl_init(t_krn k, double xoffset, double yoffset) \n\
@@ -64,22 +60,23 @@ __kernel void	render(__global int *out, t_krn k, int mx, int my) \n\
 { \n\
 t_mdl  m; \n\
 double xtemp; \n\
-int    i; \n\
+int i; \n\
 \n\
 m = mdl_init(k, k.xoffset, k.yoffset); \n\
 i = 0; \n\
 xtemp = m.x * m.x - m.y * m.y + m.x_origin; \n\
-while (m.x * m.x + m.y * m.y <= 4 && i < k.iter) \n\
+out[(m.width * m.y_dim) + m.x_dim] = 0; \n\
+while (i < k.iter) \n\
 { \n\
 xtemp = m.x * m.x - m.y * m.y + m.x_origin; \n\
 m.y = 2 * m.x * m.y + m.y_origin; \n\
 m.x = xtemp; \n\
-i++; \n\
-} \n\
-if (i == k.iter) \n\
-out[(m.width * m.y_dim) + m.x_dim] = 0; \n\
-else \n\
+if (m.x * m.x + m.y * m.y > 4) \n\
+{ \n\
 out[(m.width * m.y_dim) + m.x_dim] = ft_color(k, m, i); \n\
-} \n";
+break; \n\
+}\n\
+i++; \n\
+}}\n";
     return (Source);
 }
