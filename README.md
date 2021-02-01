@@ -1,6 +1,7 @@
 Mandelbrot explorer
 =======
 
+![Fractal Preview](https://ibb.co/L98gWgb)
 Explanation
 -----------
 
