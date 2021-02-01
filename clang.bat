@@ -1,1 +1,0 @@
-clang-cl -Zi windows.c /Fe fractal.exe -link "C:\Program Files (x86)\Windows Kits\10\Lib\10.0.16299.0\um\x64\" user32.lib Gdi32.lib
