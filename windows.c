@@ -508,8 +508,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
             Input.MousePosition.y = MousePosition.y;
             if (MouseIsDown)
             {
-                if (MousePosition.x > Resolution.Width || MousePosition.x <= 0 ||
-                        MousePosition.y > Resolution.Height || MousePosition.y <= 0)
+                win32_window_dimension Dimension = GetWindowDimension(Window);
+                if (MousePosition.x > Dimension.Width || MousePosition.x <= 0 ||
+                    MousePosition.y > Dimension.Height || MousePosition.y <= 0)
                 {
                     MouseWasDown = 1;
                     MouseIsDown = 0;
@@ -532,7 +533,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
                         MiliSecondsSinceLastInput = 0.0f;
                     MouseWasDown = 1;
                 }
-                }
+            }
             else if (!MouseIsDown && MouseWasDown)
             {
                 xoffset = 0;

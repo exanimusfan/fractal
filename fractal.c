@@ -315,18 +315,37 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
         f64 xmaxBefore = Fractol.Kernel.xmax;
         f64 ymaxBefore = Fractol.Kernel.ymax;
 
-        Fractol.Kernel.xmin += (Input.MouseWheel * 0.001f) * Fractol.Kernel.xmin;
-        Fractol.Kernel.xmax += (Input.MouseWheel * 0.001f) * Fractol.Kernel.xmax;
-        Fractol.Kernel.xmin = ClampF(Fractol.Kernel.xmin, -20, -8.0e-14);
-        Fractol.Kernel.xmax = ClampF(Fractol.Kernel.xmax, 8.0e-14, 10);
-        Fractol.Kernel.ymin += Fractol.Kernel.ymin * (Input.MouseWheel * 0.001f);
-        Fractol.Kernel.ymax += Fractol.Kernel.ymax * (Input.MouseWheel * 0.001f);
-        Fractol.Kernel.ymin = ClampF(Fractol.Kernel.ymin, -20, -3.79936e-14);
-        Fractol.Kernel.ymax = ClampF(Fractol.Kernel.ymax, 3.79936e-14, 10);
-        Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5f;
-        Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5f;
+        if (Fractol.Kernel.xmax < 8.0e-14 && Input.MouseWheel < 0)
+        {
+
+        }
+        else if (Fractol.Kernel.xmax > 20 && Input.MouseWheel > 0)
+        {
+
+        }
+        else
+        {
+            Fractol.Kernel.xmin += (Input.MouseWheel * 0.001f) * Fractol.Kernel.xmin;
+            Fractol.Kernel.xmax += (Input.MouseWheel * 0.001f) * Fractol.Kernel.xmax;
+            Fractol.Kernel.ymin += Fractol.Kernel.ymin * (Input.MouseWheel * 0.001f);
+            Fractol.Kernel.ymax += Fractol.Kernel.ymax * (Input.MouseWheel * 0.001f);
+            if (Fractol.Kernel.xmin > 0 && Fractol.Kernel.xmax < 0)
+            {
+                Fractol.Kernel.xmin = -xmaxBefore;
+                Fractol.Kernel.xmax = xmaxBefore;
+                Fractol.Kernel.ymin = -ymaxBefore;
+                Fractol.Kernel.ymax = ymaxBefore;
+            }
+            else
+            {
+                Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5f;
+                Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5f;
+            }
+        }
         Input.MouseWheel = 0;
+
     }
+
 
     if (Fractol.accel.x < 0.00001f && Fractol.accel.x >= 0.0f)
         Fractol.accel.x = 0;
