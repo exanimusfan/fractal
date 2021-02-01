@@ -26,13 +26,8 @@ finish_cl(cl_context context,
 	return (0);
 }
 
-#if 1
-// TODO(V Caraulan): Remove this
 #include <windows.h>
 #include <stdio.h>
-//
-#endif
-
 
 internal void
 check_succeeded(char *message, cl_int err)
@@ -172,60 +167,12 @@ InitFractolStructure(void)
     return (Result);
 }
 
-#if 0
-internal inline void
-RenderOnCPU(t_Kernel Kernel, application_offscreen_buffer Buffer)
-{
-    int *Image;
-    int XDimension = 0;
-    int YDimension = 0;
-
-    Image = (int *)Buffer.Memory;
-    while (YDimension < Buffer.Height)
-    {
-        XDimension = 0;
-        while (XDimension < ((Buffer.Width - 1) - 2))
-        {
-            int i;
-            __m128d Zero = __mm_set_pd1(0);
-            __m128d x_origin = _mm_set_pd1(((f32)XDimension / Buffer.Width * Kernel.xmax - Kernel.xmin)
-                                           + Kernel.xoffset);
-
-            __m128d y_origin = _mm_set_pd1(((f32)YDimension / Buffer.Height * Kernel.ymax - Kernel.ymin)
-                                           + Kernel.yoffset);
-            __m128d zr = Zero;
-            __m128d zi = Zero;
-            __m128d zrsqr = Zero;
-            __m128d zisqr = Zero;
-
-            i = 0;
-            while (zrsqr + zisqr <= 4.0 && i < Kernel.iter)
-            {
-                zi = zr * zi;
-                zi += zi;
-                zi += y_origin;
-                zr = zrsqr - zisqr + x_origin;
-                zrsqr = zr * zr;
-                zisqr = zi * zi;
-                i++;
-            }
-            if (i == Kernel.iter)
-                Image[(Buffer.Width * YDimension) + XDimension] = 0;
-            else
-                Image[(Buffer.Width * YDimension) + XDimension] = SSEColor(Kernel, zr, zi, i);
-            XDimension++;
-        }
-        YDimension++;
-    }
-}
-#endif
-
 internal inline void
 RenderOnCPU(t_Kernel Kernel, application_offscreen_buffer Buffer)
 {
     char *Image;
     Image = (char *)Buffer.Memory;
-#pragma omp parallel
+
     for (int YDimension = 0;YDimension < Buffer.Height; YDimension ++)
     {
         for (int XDimension = 0; XDimension < Buffer.Width; XDimension++)
@@ -307,23 +254,13 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
             * (f64)Input.MouseRelativePos.y;
     }
 
-    // NOTE(Victor Caraulan): Clamping the values seemd to work, no more 
-    // inverting on the x axis, but not sure if that was the problem.
-
     if (Input.MouseWheel != 0)
     {
         f64 xmaxBefore = Fractol.Kernel.xmax;
         f64 ymaxBefore = Fractol.Kernel.ymax;
 
-        if (Fractol.Kernel.xmax < 8.0e-14 && Input.MouseWheel < 0)
-        {
-
-        }
-        else if (Fractol.Kernel.xmax > 20 && Input.MouseWheel > 0)
-        {
-
-        }
-        else
+        if (!(Fractol.Kernel.xmax < 8.0e-14 && Input.MouseWheel < 0) &&
+            !(Fractol.Kernel.xmax > 20 && Input.MouseWheel > 0))
         {
             Fractol.Kernel.xmin += (Input.MouseWheel * 0.001f) * Fractol.Kernel.xmin;
             Fractol.Kernel.xmax += (Input.MouseWheel * 0.001f) * Fractol.Kernel.xmax;
@@ -341,7 +278,7 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
                 Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5f;
                 Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5f;
             }
-        }
+}
         Input.MouseWheel = 0;
 
     }
