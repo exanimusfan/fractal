@@ -33,11 +33,11 @@ To build the project :
 
 I. Using command-line cl:  
 1. Run setup_cl_x64.bat (it tries to find vcvarsall.bat for you and it runs it in x64 mode)  
-2. Run build.bat  
+2. Run build.bat (The binary will be created inside bin\ directory)  
 
 II.Using Visual Studio:  
 1. Open fractal.vcxproj  
-2. Run  
+2. Run  (The binary will be created in x64\Release or x64\Debug)  
 
 III. Using any other compiler with Windows libs  
 1. Compile the windows.c file including the lightOCLSDK/include path for CL and the Windows Kit header files.  
