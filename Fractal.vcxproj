@@ -148,10 +148,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="windows.c" />
+    <ClCompile Include="code\windows.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fractal.h" />
     <ClInclude Include="lightoclsdk\include\cl\cl.h" />
     <ClInclude Include="lightoclsdk\include\cl\cl.hpp" />
     <ClInclude Include="lightoclsdk\include\cl\cl_d3d10.h" />
@@ -163,7 +162,6 @@
     <ClInclude Include="lightoclsdk\include\cl\cl_platform.h" />
     <ClInclude Include="lightoclsdk\include\cl\opencl.h" />
     <ClInclude Include="opencl\opencl.h" />
-    <ClInclude Include="windows_layer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
