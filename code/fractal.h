@@ -63,7 +63,7 @@ typedef struct		s_Kernel
 	f64	xoffset;
 	f64	yoffset;
 	s32	iter;
-	}					t_Kernel;
+}					t_Kernel;
 
 typedef struct s_2d
 {

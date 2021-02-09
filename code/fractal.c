@@ -278,7 +278,7 @@ ApplicationUpdateAndRender(application_offscreen_buffer Buffer,
                 Fractol.Kernel.xoffset += (xmaxBefore - Fractol.Kernel.xmax) * 1.5f;
                 Fractol.Kernel.yoffset += (ymaxBefore - Fractol.Kernel.ymax) * 1.5f;
             }
-}
+        }
         Input.MouseWheel = 0;
 
     }
