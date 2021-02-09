@@ -369,11 +369,6 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
     u8 DesiredSchedulerMS = 1;
     BOOL SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
 
-    // TODO(Victor Caraulan): How to get this from windows ?
-    int MonitorRefreshHz = 60;
-    int ApplicationHz = MonitorRefreshHz;
-    f32 TargetSecondsPerFrame = 1.0f / (f32)ApplicationHz;
-    f64 ResolutionPercentage = 1.0f;
     Win32LoadXInput();
     if (RegisterClassA(&WindowClass))
     {
@@ -393,6 +388,22 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance,
     }
     if (Window)
     {
+        HMONITOR MonitorWindow =
+            MonitorFromWindow(Window, MONITOR_DEFAULTTONEAREST);
+        MONITORINFOEX MonitorInfo;
+        DEVMODE DevInfo;
+
+        MonitorInfo.cbSize = sizeof(MONITORINFOEX);
+
+        GetMonitorInfoA(MonitorWindow, (MONITORINFO*)&MonitorInfo);
+        EnumDisplaySettingsA(MonitorInfo.szDevice,
+                             ENUM_CURRENT_SETTINGS, &DevInfo);
+
+        int MonitorRefreshHz = DevInfo.dmDisplayFrequency;
+        int ApplicationHz = MonitorRefreshHz;
+        f32 TargetSecondsPerFrame = 1.0f / (f32)ApplicationHz;
+        f64 ResolutionPercentage = 1.0f;
+
         //ToggleFullscreen(Window);
         HGLRC glContext = Win32InitOpenGL(Window);
         ShowWindow(Window, ShowCode);
